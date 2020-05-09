@@ -39,6 +39,7 @@ struct cs_callback
 void cs_netif_input(struct netif *netif);
 err_t cs_netif_init(struct netif *netif);
 void cs_lwip_app_platform_assert(const char *msg, int line, const char *file);
-char *cs_ip_val(ip_addr_t ipaddr);
+char *cs_ip_val(ip_addr_t ipaddr, int *iplen);
+void cs_ip_val_free(char* ipaddr);
 
 #endif /* LWIP_CS_H */

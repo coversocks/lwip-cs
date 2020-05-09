@@ -8,7 +8,10 @@
 #include <errno.h>
 #include <time.h>
 
-#ifdef LWIP_UNIX_MACH
+#ifdef __MACH__
+#include <mach/clock.h>
+#include <mach/mach.h>
+#elif LWIP_UNIX_MACH
 #include <mach/mach.h>
 #include <mach/mach_time.h>
 #endif
@@ -26,7 +29,15 @@ u32_t lwip_port_rand(void)
 static void
 get_monotonic_time(struct timespec *ts)
 {
-#ifdef LWIP_UNIX_MACH
+#ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
+    clock_serv_t cclock;
+    mach_timespec_t mts;
+    host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
+    clock_get_time(cclock, &mts);
+    mach_port_deallocate(mach_task_self(), cclock);
+    ts->tv_sec = mts.tv_sec;
+    ts->tv_nsec = mts.tv_nsec;
+#elif LWIP_UNIX_MACH
     /* darwin impl (no CLOCK_MONOTONIC) */
     u64_t t = mach_absolute_time();
     mach_timebase_info_data_t timebase_info = {0, 0};

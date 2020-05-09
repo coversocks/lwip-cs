@@ -188,7 +188,7 @@ void cs_lwip_app_platform_assert(const char *msg, int line, const char *file)
   abort();
 }
 
-char *cs_ip_val(ip_addr_t ipaddr)
+char *cs_ip_val(ip_addr_t ipaddr, int *iplen)
 {
   if (IP_IS_V6_VAL(ipaddr))
   {
@@ -201,6 +201,8 @@ char *cs_ip_val(ip_addr_t ipaddr)
     val[5] = IP6_ADDR_BLOCK6(ip_2_ip6(&(ipaddr)));
     val[6] = IP6_ADDR_BLOCK7(ip_2_ip6(&(ipaddr)));
     val[7] = IP6_ADDR_BLOCK8(ip_2_ip6(&(ipaddr)));
+    *iplen = 8;
+    return val;
   }
   else
   {
@@ -209,6 +211,12 @@ char *cs_ip_val(ip_addr_t ipaddr)
     val[1] = ip4_addr2_16_val(*ip_2_ip4(&(ipaddr)));
     val[2] = ip4_addr3_16_val(*ip_2_ip4(&(ipaddr)));
     val[3] = ip4_addr4_16_val(*ip_2_ip4(&(ipaddr)));
+    *iplen = 4;
     return val;
   }
+}
+
+void cs_ip_val_free(char *ipaddr)
+{
+  free(ipaddr);
 }

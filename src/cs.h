@@ -21,7 +21,8 @@ typedef void (*cs_tcp_close_fn)(void *arg, struct tcp_pcb *tpcb, struct cs_tcp_r
 typedef err_t (*cs_udp_recv_fn)(void *arg, struct udp_pcb *upcb, struct pbuf *p, const ip_addr_t *addr, u16_t port);
 typedef err_t (*cs_udp_recv_fn)(void *arg, struct udp_pcb *upcb, struct pbuf *p, const ip_addr_t *addr, u16_t port);
 typedef ssize_t (*cs_output_fn)(void *arg, struct netif *netif, const char *buf, u16_t len);
-typedef ssize_t (*cs_input_fn)(void *arg, struct netif *netif, char *buf, u16_t len);
+typedef char *(*cs_input_fn)(void *arg, struct netif *netif, ssize_t *len);
+typedef void (*cs_input_free_fn)(void *arg, struct netif *netif, char *buf);
 
 struct cs_callback
 {
@@ -32,6 +33,7 @@ struct cs_callback
   cs_udp_recv_fn udp_recv;
   cs_output_fn output;
   cs_input_fn input;
+  cs_input_free_fn input_free;
 };
 
 void cs_netif_input(struct netif *netif);

@@ -193,10 +193,21 @@ ssize_t cs_output(void *arg, struct netif *netif, const char *buf, u16_t len)
     printf("---->cs_output\n");
     return write(tap_fd, buf, len);
 }
-ssize_t cs_input(void *arg, struct netif *netif, char *buf, u16_t len)
+char *cs_input(void *arg, struct netif *netif, ssize_t *len)
 {
     printf("---->cs_input\n");
-    return read(tap_fd, buf, len);
+    char *buf = malloc(1518);
+    *len = read(tap_fd, buf, 1518);
+    if (*len < 1)
+    {
+        free(buf);
+        buf = NULL;
+    }
+    return buf;
+}
+void cs_input_free(void *arg, struct netif *netif, char *buf)
+{
+    free(buf);
 }
 
 int main()
@@ -218,6 +229,7 @@ int main()
     back.udp_recv = cs_udp_recv;
     back.output = cs_output;
     back.input = cs_input;
+    back.input_free = cs_input_free;
     // init netif
     if (!netif_add(&netif, &addr, &netmask, &gw, &back, cs_netif_init, tcpip_input))
     {

@@ -30,13 +30,13 @@ static struct pbuf *cs_low_level_input(struct netif *netif)
   struct pbuf *p;
   u16_t len;
   ssize_t readlen;
-  char buf[1518]; /* max packet size including VLAN excluding CRC */
+  char *buf;
   struct cs_callback *back = netif->state;
 
   /* Obtain the size of the packet and put it into the "len"
      variable. */
-  readlen = back->input(back->state, netif, buf, sizeof(buf));
-  if (readlen < 0)
+  buf = back->input(back->state, netif, &readlen);
+  if (buf == NULL)
   {
     perror("cs read returned -1");
     return NULL;
@@ -58,7 +58,7 @@ static struct pbuf *cs_low_level_input(struct netif *netif)
     MIB2_STATS_NETIF_INC(netif, ifindiscards);
     LWIP_DEBUGF(NETIF_DEBUG, ("cs_netif_input: could not allocate pbuf\n"));
   }
-
+  back->input_free(back->state, netif, buf);
   return p;
 }
 
@@ -183,7 +183,7 @@ err_t cs_netif_init(struct netif *netif)
 
 void cs_lwip_app_platform_assert(const char *msg, int line, const char *file)
 {
-    printf("Assertion \"%s\" failed at line %d in %s\n", msg, line, file);
-    fflush(NULL);
-    abort();
+  printf("Assertion \"%s\" failed at line %d in %s\n", msg, line, file);
+  fflush(NULL);
+  abort();
 }

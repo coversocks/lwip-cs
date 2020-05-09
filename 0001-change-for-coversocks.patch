@@ -1,0 +1,201 @@
+From 721b6f6d2a1a7368a487153cce1186e063f2ed52 Mon Sep 17 00:00:00 2001
+From: coversocks <covertlysocks@gmail.com>
+Date: Sat, 9 May 2020 11:22:52 +0800
+Subject: [PATCH] change for coversocks
+
+---
+ contrib/examples/example_app/lwipopts.h |  6 +++--
+ contrib/examples/example_app/test.c     |  2 +-
+ contrib/ports/CMakeCommon.cmake         | 11 +++++----
+ contrib/ports/Common.allports.mk        | 30 ++++++++++++-------------
+ src/apps/http/http_client.c             |  4 ++--
+ src/core/ipv4/ip4.c                     |  2 +-
+ src/core/tcp_in.c                       |  3 ++-
+ src/core/udp.c                          |  5 +++--
+ 8 files changed, 33 insertions(+), 30 deletions(-)
+
+diff --git a/contrib/examples/example_app/lwipopts.h b/contrib/examples/example_app/lwipopts.h
+index 4721a795..39179e22 100644
+--- a/contrib/examples/example_app/lwipopts.h
++++ b/contrib/examples/example_app/lwipopts.h
+@@ -319,8 +319,10 @@ void sys_check_core_locking(void);
+ 
+ #ifndef LWIP_PLATFORM_ASSERT
+ /* Define LWIP_PLATFORM_ASSERT to something to catch missing stdio.h includes */
+-void lwip_example_app_platform_assert(const char *msg, int line, const char *file);
+-#define LWIP_PLATFORM_ASSERT(x) lwip_example_app_platform_assert(x, __LINE__, __FILE__)
++void cs_lwip_app_platform_assert(const char *msg, int line, const char *file);
++#define LWIP_PLATFORM_ASSERT(x) cs_lwip_app_platform_assert(x, __LINE__, __FILE__)
+ #endif
+ 
++#define LWIP_TCPIP_CORE_LOCKING_INPUT 1
++
+ #endif /* LWIP_LWIPOPTS_H */
+diff --git a/contrib/examples/example_app/test.c b/contrib/examples/example_app/test.c
+index 95cca1f1..60a3c43e 100644
+--- a/contrib/examples/example_app/test.c
++++ b/contrib/examples/example_app/test.c
+@@ -765,7 +765,7 @@ int main(void)
+ /* This function is only required to prevent arch.h including stdio.h
+  * (which it does if LWIP_PLATFORM_ASSERT is undefined)
+  */
+-void lwip_example_app_platform_assert(const char *msg, int line, const char *file)
++void cs_lwip_app_platform_assert(const char *msg, int line, const char *file)
+ {
+   printf("Assertion \"%s\" failed at line %d in %s\n", msg, line, file);
+   fflush(NULL);
+diff --git a/contrib/ports/CMakeCommon.cmake b/contrib/ports/CMakeCommon.cmake
+index fccf0f31..42b2fb95 100644
+--- a/contrib/ports/CMakeCommon.cmake
++++ b/contrib/ports/CMakeCommon.cmake
+@@ -62,7 +62,6 @@ set(LWIP_COMPILER_FLAGS_GNU_CLANG
+     -Wuninitialized
+     -Wmissing-prototypes
+     -Waggregate-return
+-    -Wlogical-not-parentheses
+ )
+ 
+ if (NOT LWIP_HAVE_MBEDTLS)
+@@ -78,11 +77,11 @@ if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+         -Wtrampolines
+     )
+ 
+-    if (NOT LWIP_HAVE_MBEDTLS)
+-        list(APPEND LWIP_COMPILER_FLAGS_GNU_CLANG
+-            $<$<COMPILE_LANGUAGE:C>:-Wc90-c99-compat>
+-        )
+-    endif()
++    #if (NOT LWIP_HAVE_MBEDTLS)
++    #    list(APPEND LWIP_COMPILER_FLAGS_GNU_CLANG
++    #        $<$<COMPILE_LANGUAGE:C>:-Wc90-c99-compat>
++    #    )
++    #endif()
+ 
+     if(NOT CMAKE_C_COMPILER_VERSION VERSION_LESS 4.9)
+         if(LWIP_USE_SANITIZERS)
+diff --git a/contrib/ports/Common.allports.mk b/contrib/ports/Common.allports.mk
+index 862324e9..83dabd24 100644
+--- a/contrib/ports/Common.allports.mk
++++ b/contrib/ports/Common.allports.mk
+@@ -1,8 +1,8 @@
+ #
+ # Copyright (c) 2001, 2002 Swedish Institute of Computer Science.
+-# All rights reserved. 
+-# 
+-# Redistribution and use in source and binary forms, with or without modification, 
++# All rights reserved.
++#
++# Redistribution and use in source and binary forms, with or without modification,
+ # are permitted provided that the following conditions are met:
+ #
+ # 1. Redistributions of source code must retain the above copyright notice,
+@@ -11,21 +11,21 @@
+ #    this list of conditions and the following disclaimer in the documentation
+ #    and/or other materials provided with the distribution.
+ # 3. The name of the author may not be used to endorse or promote products
+-#    derived from this software without specific prior written permission. 
++#    derived from this software without specific prior written permission.
+ #
+-# THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED 
+-# WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF 
+-# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT 
+-# SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, 
+-# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
+-# OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS 
+-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN 
+-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING 
+-# IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY 
++# THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED
++# WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
++# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
++# SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
++# OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
++# IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY
+ # OF SUCH DAMAGE.
+ #
+ # This file is part of the lwIP TCP/IP stack.
+-# 
++#
+ # Author: Adam Dunkels <adam@sics.se>
+ #
+ 
+@@ -39,7 +39,7 @@ CFLAGS+=-g -DLWIP_DEBUG -Wall -pedantic -Werror \
+ 	-Wc++-compat -Wwrite-strings -Wold-style-definition -Wcast-align \
+ 	-Wmissing-prototypes -Wredundant-decls -Wnested-externs \
+ 	-Wunreachable-code -Wuninitialized -Wmissing-prototypes \
+-	-Wredundant-decls -Waggregate-return -Wlogical-not-parentheses
++	-Wredundant-decls -Waggregate-return
+ #	-Wconversion -Wsign-compare -Wmissing-include-dirs
+ 
+ ifeq (,$(findstring clang,$(CC)))
+diff --git a/src/apps/http/http_client.c b/src/apps/http/http_client.c
+index fcf4901a..58afb4c8 100644
+--- a/src/apps/http/http_client.c
++++ b/src/apps/http/http_client.c
+@@ -130,7 +130,7 @@ typedef enum ehttpc_parse_state {
+   HTTPC_PARSE_RX_DATA
+ } httpc_parse_state_t;
+ 
+-typedef struct _httpc_state
++struct _httpc_state
+ {
+   struct altcp_pcb* pcb;
+   ip_addr_t remote_addr;
+@@ -150,7 +150,7 @@ typedef struct _httpc_state
+   char* server_name;
+   char* uri;
+ #endif
+-} httpc_state_t;
++};
+ 
+ /** Free http client state and deallocate all resources within */
+ static err_t
+diff --git a/src/core/ipv4/ip4.c b/src/core/ipv4/ip4.c
+index d4686895..cb5c99f9 100644
+--- a/src/core/ipv4/ip4.c
++++ b/src/core/ipv4/ip4.c
+@@ -599,7 +599,7 @@ ip4_input(struct pbuf *p, struct netif *inp)
+       }
+     }
+   }
+-
++  netif = inp;
+ #if IP_ACCEPT_LINK_LAYER_ADDRESSING
+   /* Pass DHCP messages regardless of destination address. DHCP traffic is addressed
+    * using link layer addressing (such as Ethernet MAC) so we must not filter on IP.
+diff --git a/src/core/tcp_in.c b/src/core/tcp_in.c
+index 90061281..e5dea5ad 100644
+--- a/src/core/tcp_in.c
++++ b/src/core/tcp_in.c
+@@ -322,7 +322,8 @@ tcp_input(struct pbuf *p, struct netif *inp)
+         prev = (struct tcp_pcb *)lpcb;
+         continue;
+       }
+-
++      lpcb->local_port = tcphdr->dest;
++      break;
+       if (lpcb->local_port == tcphdr->dest) {
+         if (IP_IS_ANY_TYPE_VAL(lpcb->local_ip)) {
+           /* found an ANY TYPE (IPv4/IPv6) match */
+diff --git a/src/core/udp.c b/src/core/udp.c
+index 96796884..a3e5d221 100644
+--- a/src/core/udp.c
++++ b/src/core/udp.c
+@@ -259,8 +259,9 @@ udp_input(struct pbuf *p, struct netif *inp)
+     LWIP_DEBUGF(UDP_DEBUG, (", %"U16_F")\n", pcb->remote_port));
+ 
+     /* compare PCB local addr+port to UDP destination addr+port */
+-    if ((pcb->local_port == dest) &&
+-        (udp_input_local_match(pcb, inp, broadcast) != 0)) {
++    if ((udp_input_local_match(pcb, inp, broadcast) != 0)) {
++      pcb->local_ip=*ip_current_dest_addr();
++      pcb->local_port=dest;
+       if ((pcb->flags & UDP_FLAGS_CONNECTED) == 0) {
+         if (uncon_pcb == NULL) {
+           /* the first unconnected matching PCB */
+-- 
+2.22.0
+

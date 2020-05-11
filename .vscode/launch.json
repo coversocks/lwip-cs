@@ -21,6 +21,9 @@
                     "ignoreFailures": true
                 }
             ],
+            "cwd": "${workspaceFolder}/build/",
+            "program": "${workspaceFolder}/build/src/test-lwip-cs",
+            "miDebuggerPath": "lldb",
             "linux": {
                 "cwd": "${workspaceFolder}/build/",
                 "program": "${workspaceFolder}/build/src/lwip-cs",

@@ -52,7 +52,7 @@
 
 #if LWIP_UDP
 
-struct netif *get_current_netif(struct udp_pcb *pcb, const ip_addr_t *dst_ip, u16_t dst_port)
+struct netif *cs_get_current_netif(struct udp_pcb *pcb, const ip_addr_t *dst_ip, u16_t dst_port)
 {
   struct netif *netif;
   LWIP_UNUSED_ARG(dst_port);
@@ -110,7 +110,7 @@ struct netif *get_current_netif(struct udp_pcb *pcb, const ip_addr_t *dst_ip, u1
 
 err_t cs_udp_sendto(struct udp_pcb *upcb, struct pbuf *p, const ip_addr_t *addr, u16_t port)
 {
-  return udp_sendto_if_src(upcb, p, addr, port, get_current_netif(upcb, addr, port), &upcb->local_ip);
+  return udp_sendto_if_src(upcb, p, addr, port, cs_get_current_netif(upcb, addr, port), &upcb->local_ip);
 }
 
 static void cs_udp_raw_recv(void *arg, struct udp_pcb *upcb, struct pbuf *p,
@@ -119,7 +119,7 @@ static void cs_udp_raw_recv(void *arg, struct udp_pcb *upcb, struct pbuf *p,
   if (p != NULL)
   {
     struct cs_callback *back = arg;
-    back->udp_recv(back->state, upcb, p, addr, port);
+    back->udp_recv(back, upcb, p, addr, port);
   }
 }
 

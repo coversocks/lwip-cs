@@ -107,7 +107,7 @@ void cs_tcp_raw_send(struct tcp_pcb *tpcb, struct cs_tcp_raw_state *es)
       }
       /* chop first pbuf from chain */
       pbuf_free(ptr);
-      /* we can read more data now */
+      // /* we can read more data now */
       tcp_recved(tpcb, plen);
     }
     else if (wr_err == ERR_MEM)
@@ -117,8 +117,15 @@ void cs_tcp_raw_send(struct tcp_pcb *tpcb, struct cs_tcp_raw_state *es)
     }
     else
     {
-      /* other problem ?? */
+      // /* close */
+      // tcp_close(tpcb);
+      // pbuf_free(ptr);
+      // es->send = NULL;
     }
+  }
+  if (es->send == NULL)
+  {
+    es->callback->tcp_send_done(es->callback->state, tpcb, es);
   }
 }
 
@@ -236,22 +243,22 @@ static err_t cs_tcp_raw_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
   else if (es->state == ES_RECEIVED)
   {
     /* read some more data */
-    if (es->send == NULL)
-    {
-      /*
+    // if (es->send == NULL)
+    // {
+    /*
       es->send = p;
       cs_tcp_raw_send(tpcb, es);
       */
-      ret_err = es->callback->tcp_recv(es->callback->state, tpcb, p, es);
-    }
-    else
-    {
-      struct pbuf *ptr;
-      /* chain pbufs to the end of what we recv'ed previously  */
-      ptr = es->send;
-      pbuf_cat(ptr, p);
-    }
-    ret_err = ERR_OK;
+    ret_err = es->callback->tcp_recv(es->callback->state, tpcb, p, es);
+    // }
+    // else
+    // {
+    //   struct pbuf *ptr;
+    //   /* chain pbufs to the end of what we recv'ed previously  */
+    //   ptr = es->send;
+    //   pbuf_cat(ptr, p);
+    // }
+    // ret_err = ERR_OK;
   }
   else
   {

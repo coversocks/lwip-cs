@@ -11,6 +11,7 @@
 #include "lwip/timeouts.h"
 #include "netif/etharp.h"
 #include "lwip/ethip6.h"
+#include <netif/ethernet.h>
 
 /* Define those to better describe your network interface. */
 #define IFNAME0 't'
@@ -28,37 +29,16 @@
 static struct pbuf *cs_low_level_input(struct netif *netif)
 {
   struct pbuf *p;
-  u16_t len;
-  ssize_t readlen;
-  char *buf;
+  u16_t readlen = 0;
   struct cs_callback *back = netif->state;
-
-  /* Obtain the size of the packet and put it into the "len"
-     variable. */
-  buf = back->input(back->state, netif, &readlen);
-  if (buf == NULL)
-  {
-    perror("cs read returned -1");
-    return NULL;
-  }
-  len = (u16_t)readlen;
-
-  MIB2_STATS_NETIF_ADD(netif, ifinoctets, len);
-
-  /* We allocate a pbuf chain of pbufs from the pool. */
-  p = pbuf_alloc(PBUF_RAW, len, PBUF_POOL);
-  if (p != NULL)
-  {
-    pbuf_take(p, buf, len);
-    /* acknowledge that packet has been read(); */
-  }
-  else
+  p = back->input(back->state, netif, &readlen);
+  MIB2_STATS_NETIF_ADD(netif, ifinoctets, readlen);
+  if (p == NULL)
   {
     /* drop packet(); */
     MIB2_STATS_NETIF_INC(netif, ifindiscards);
     LWIP_DEBUGF(NETIF_DEBUG, ("cs_netif_input: could not allocate pbuf\n"));
   }
-  back->input_free(back->state, netif, buf);
   return p;
 }
 
@@ -122,7 +102,7 @@ err_t cs_low_level_output(struct netif *netif, struct pbuf *p)
   if (written < p->tot_len)
   {
     MIB2_STATS_NETIF_INC(netif, ifoutdiscards);
-    perror("tapif: write");
+    perror("cs_low_level_output: write");
     return ERR_IF;
   }
   else
@@ -188,35 +168,44 @@ void cs_lwip_app_platform_assert(const char *msg, int line, const char *file)
   abort();
 }
 
-char *cs_ip_val(ip_addr_t ipaddr, int *iplen)
+int cs_ip_len(ip_addr_t *ipaddr)
 {
-  if (IP_IS_V6_VAL(ipaddr))
+  if (IP_GET_TYPE(ipaddr) == IPADDR_TYPE_V6)
   {
-    char *val = malloc(8);
-    val[0] = IP6_ADDR_BLOCK1(ip_2_ip6(&(ipaddr)));
-    val[1] = IP6_ADDR_BLOCK2(ip_2_ip6(&(ipaddr)));
-    val[2] = IP6_ADDR_BLOCK3(ip_2_ip6(&(ipaddr)));
-    val[3] = IP6_ADDR_BLOCK4(ip_2_ip6(&(ipaddr)));
-    val[4] = IP6_ADDR_BLOCK5(ip_2_ip6(&(ipaddr)));
-    val[5] = IP6_ADDR_BLOCK6(ip_2_ip6(&(ipaddr)));
-    val[6] = IP6_ADDR_BLOCK7(ip_2_ip6(&(ipaddr)));
-    val[7] = IP6_ADDR_BLOCK8(ip_2_ip6(&(ipaddr)));
-    *iplen = 8;
-    return val;
+    return 16;
   }
   else
   {
-    char *val = malloc(4);
-    val[0] = ip4_addr1_16_val(*ip_2_ip4(&(ipaddr)));
-    val[1] = ip4_addr2_16_val(*ip_2_ip4(&(ipaddr)));
-    val[2] = ip4_addr3_16_val(*ip_2_ip4(&(ipaddr)));
-    val[3] = ip4_addr4_16_val(*ip_2_ip4(&(ipaddr)));
-    *iplen = 4;
-    return val;
+    return 4;
   }
 }
 
-void cs_ip_val_free(char *ipaddr)
+void cs_ip_get(const ip_addr_t *ipaddr, char *buf)
 {
-  free(ipaddr);
+  if (IP_GET_TYPE(ipaddr) == IPADDR_TYPE_V6)
+  {
+    buf[0] = (char)lwip_htonl(ip_2_ip6(ipaddr)->addr[0]) >> 24;
+    buf[1] = (char)lwip_htonl(ip_2_ip6(ipaddr)->addr[0]) >> 16;
+    buf[2] = (char)lwip_htonl(ip_2_ip6(ipaddr)->addr[0]) >> 8;
+    buf[3] = (char)lwip_htonl(ip_2_ip6(ipaddr)->addr[0]);
+    buf[4] = (char)lwip_htonl(ip_2_ip6(ipaddr)->addr[1]) >> 24;
+    buf[5] = (char)lwip_htonl(ip_2_ip6(ipaddr)->addr[1]) >> 16;
+    buf[6] = (char)lwip_htonl(ip_2_ip6(ipaddr)->addr[1]) >> 8;
+    buf[7] = (char)lwip_htonl(ip_2_ip6(ipaddr)->addr[1]);
+    buf[8] = (char)lwip_htonl(ip_2_ip6(ipaddr)->addr[2]) >> 24;
+    buf[9] = (char)lwip_htonl(ip_2_ip6(ipaddr)->addr[2]) >> 16;
+    buf[10] = (char)lwip_htonl(ip_2_ip6(ipaddr)->addr[2]) >> 8;
+    buf[11] = (char)lwip_htonl(ip_2_ip6(ipaddr)->addr[2]);
+    buf[12] = (char)lwip_htonl(ip_2_ip6(ipaddr)->addr[3]) >> 24;
+    buf[13] = (char)lwip_htonl(ip_2_ip6(ipaddr)->addr[3]) >> 16;
+    buf[14] = (char)lwip_htonl(ip_2_ip6(ipaddr)->addr[3]) >> 8;
+    buf[15] = (char)lwip_htonl(ip_2_ip6(ipaddr)->addr[3]);
+  }
+  else
+  {
+    buf[0] = ip4_addr1_val(*ip_2_ip4(ipaddr));
+    buf[1] = ip4_addr2_val(*ip_2_ip4(ipaddr));
+    buf[2] = ip4_addr3_val(*ip_2_ip4(ipaddr));
+    buf[3] = ip4_addr4_val(*ip_2_ip4(ipaddr));
+  }
 }

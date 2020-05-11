@@ -30,6 +30,10 @@
 #include "lwip/ethip6.h"
 #define IFCONFIG_BIN "/sbin/ifconfig "
 
+#if __APPLE__
+#include <fcntl.h>
+#endif
+
 #if defined(LWIP_UNIX_LINUX)
 #include <sys/ioctl.h>
 #include <sys/socket.h> // <-- This one
@@ -82,8 +86,8 @@
 
 /* ------------------------- */
 
-#define LWIP_PORT_INIT_IPADDR(addr) IP4_ADDR((addr), 192, 168, 1, 200)
-#define LWIP_PORT_INIT_GW(addr) IP4_ADDR((addr), 192, 168, 1, 1)
+#define LWIP_PORT_INIT_IPADDR(addr) IP4_ADDR((addr), 192, 168, 100, 200)
+#define LWIP_PORT_INIT_GW(addr) IP4_ADDR((addr), 192, 168, 100, 1)
 #define LWIP_PORT_INIT_NETMASK(addr) IP4_ADDR((addr), 255, 255, 255, 0)
 
 int tap_fd = -1;
@@ -164,7 +168,7 @@ err_t cs_tcp_accept(void *arg, struct tcp_pcb *newpcb, struct cs_tcp_raw_state *
 }
 err_t cs_tcp_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, struct cs_tcp_raw_state *state)
 {
-    printf("---->cs_tcp_recv\n");
+    // printf("---->cs_tcp_recv\n");
     if (state->send == NULL)
     {
         state->send = p;
@@ -176,7 +180,11 @@ err_t cs_tcp_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, struct cs_tcp
         ptr = state->send;
         pbuf_cat(ptr, p);
     }
+    // pbuf_free(p);
     return ERR_OK;
+}
+void cs_tcp_send_done(void *arg, struct tcp_pcb *tpcb, struct cs_tcp_raw_state *state)
+{
 }
 void cs_tcp_close(void *arg, struct tcp_pcb *tpcb, struct cs_tcp_raw_state *state)
 {
@@ -184,26 +192,33 @@ void cs_tcp_close(void *arg, struct tcp_pcb *tpcb, struct cs_tcp_raw_state *stat
 }
 err_t cs_udp_recv(void *arg, struct udp_pcb *upcb, struct pbuf *p, const ip_addr_t *addr, u16_t port)
 {
-    printf("---->cs_udp_recv\n");
+    // printf("---->cs_udp_recv\n");
     cs_udp_sendto(upcb, p, addr, port);
+    pbuf_free(p);
     return ERR_OK;
 }
 ssize_t cs_output(void *arg, struct netif *netif, const char *buf, u16_t len)
 {
-    printf("---->cs_output\n");
+    // printf("---->cs_output\n");
     return write(tap_fd, buf, len);
 }
-char *cs_input(void *arg, struct netif *netif, ssize_t *len)
+struct pbuf *cs_input(void *arg, struct netif *netif, u16_t *readlen)
 {
-    printf("---->cs_input\n");
-    char *buf = malloc(1518);
-    *len = read(tap_fd, buf, 1518);
-    if (*len < 1)
+    char buf[1518];
+    struct pbuf *p;
+    ssize_t len;
+    len = read(tap_fd, buf, 1518);
+    if (len < 1)
     {
-        free(buf);
-        buf = NULL;
+        *readlen = 0;
+        return NULL;
     }
-    return buf;
+    p = pbuf_alloc(PBUF_RAW, len, PBUF_POOL);
+    if (p != NULL)
+    {
+        pbuf_take(p, buf, len);
+    }
+    return p;
 }
 void cs_input_free(void *arg, struct netif *netif, char *buf)
 {
@@ -214,6 +229,7 @@ int main()
 {
     // init lwip
     lwip_init();
+    // tcpip_init(NULL,NULL);
 
     ip4_addr_t addr;
     ip4_addr_t netmask;
@@ -225,17 +241,17 @@ int main()
     struct cs_callback back;
     back.tcp_accept = cs_tcp_accept;
     back.tcp_recv = cs_tcp_recv;
+    back.tcp_send_done = cs_tcp_send_done;
     back.tcp_close = cs_tcp_close;
     back.udp_recv = cs_udp_recv;
     back.output = cs_output;
     back.input = cs_input;
-    back.input_free = cs_input_free;
+    back.netif = &netif;
     // init netif
-    if (!netif_add(&netif, &addr, &netmask, &gw, &back, cs_netif_init, tcpip_input))
+    if (!netif_add(&netif, &addr, &netmask, &gw, &back, cs_netif_init, ethernet_input))
     {
         goto fail;
     }
-    cs_tap_init(&netif);
 
     // set netif up
     netif_set_up(&netif);
@@ -247,9 +263,14 @@ int main()
     netif_set_default(&netif);
     cs_tcp_raw_init(&back);
     cs_udp_raw_init(&back);
+    cs_tap_init(&netif);
+    // udpecho_raw_init();
     while (1)
     {
         cs_netif_input(&netif);
+        // default_netif_poll();
+        // tapif_poll(&netif);
+        netif_poll_all();
     }
 fail:
     printf("all done");

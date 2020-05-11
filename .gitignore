@@ -1,1 +1,3 @@
 build
+build_ios_arm64/
+build_ios_armv7/

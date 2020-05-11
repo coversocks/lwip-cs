@@ -3,6 +3,7 @@
         {
             "name": "Linux",
             "includePath": [
+                "${workspaceFolder}/",
                 "${workspaceFolder}/../lwip/src/include/",
                 "${workspaceFolder}/src/",
                 "${workspaceFolder}/../lwip/contrib/ports/unix/port/include"

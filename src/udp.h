@@ -36,7 +36,7 @@
 #include "cs.h"
 
 err_t cs_udp_sendto(struct udp_pcb *upcb, struct pbuf *p, const ip_addr_t *addr, u16_t port);
-struct netif *get_current_netif(struct udp_pcb *pcb, const ip_addr_t *dst_ip, u16_t dst_port);
+struct netif *cs_get_current_netif(struct udp_pcb *pcb, const ip_addr_t *dst_ip, u16_t dst_port);
 struct udp_pcb *cs_udp_raw_init(struct cs_callback *back);
 
 #endif /* LWIP_UDPECHO_RAW_H */

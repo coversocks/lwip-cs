@@ -1,4 +1,4 @@
-package csocks
+package main
 
 import (
 	"fmt"
@@ -8,12 +8,15 @@ import (
 	"github.com/coversocks/lwipcs"
 )
 
+import "C"
+
+//Echo is the lwipcs event handle
 type Echo struct {
-	rrr    bool
 	recved uint64
 	begin  int64
 }
 
+//Show will printf the debug info
 func (e *Echo) Show() {
 	// for {
 	// 	fmt.Printf("R(%v)\n", e.recved)
@@ -21,6 +24,7 @@ func (e *Echo) Show() {
 	// }
 }
 
+//OnAccept will handle the tcp accept
 func (e *Echo) OnAccept(pcb *lwipcs.PCB) {
 	fmt.Printf("accept from %v to %v\n", pcb.RemoteAddr(), pcb.LocalAddr())
 	go func() {
@@ -70,9 +74,13 @@ func (e *Echo) OnAccept(pcb *lwipcs.PCB) {
 	// 	pcb.Close()
 	// }()
 }
+
+//OnClose will handle the tcp close
 func (e *Echo) OnClose(pcb *lwipcs.PCB) {
 	fmt.Printf("close for %v\n", pcb.RemoteAddr())
 }
+
+//OnRecv will handle the udp data receive
 func (e *Echo) OnRecv(pcb *lwipcs.PCB, data []byte) {
 	if strings.Contains(pcb.RemoteAddr().String(), ":5353") {
 		return
@@ -88,10 +96,17 @@ func init() {
 	lwipcs.Event = echo
 }
 
-func Proc() {
+//export go_cs_proc
+func go_cs_proc() {
+	go go_cs_read()
 	lwipcs.Proc()
 }
 
-func Read() {
+//export go_cs_read
+func go_cs_read() {
 	lwipcs.Read()
+}
+
+func main() {
+
 }

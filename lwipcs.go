@@ -7,7 +7,7 @@ import (
 )
 
 // #cgo amd64 386 CFLAGS: -I../lwip/src/include/ -I./src -I../lwip/contrib/ports/unix/port/include
-// #cgo amd64 386 LDFLAGS: -L ./build/src/ -L../lwip/build/contrib/ports/unix/example_app -llwipcs -llwipcore
+// #cgo amd64 386 LDFLAGS: -L ./build/src/ -L../lwip/build/contrib/ports/unix/example_app
 // #cgo ios CFLAGS: -I../lwip/src/include/ -I./src -I../lwip/contrib/ports/unix/port/include
 // #cgo ios LDFLAGS: -L /Users/vty/deps/ios/arm64/lib/
 // #cgo android CFLAGS: -I../lwip/src/include/ -I./src -I../lwip/contrib/ports/unix/port/include

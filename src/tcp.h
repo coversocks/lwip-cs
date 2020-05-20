@@ -42,15 +42,16 @@ enum cs_tcp_raw_states
 
 struct cs_tcp_raw_state
 {
+  struct tcp_pcb tpcb;
   u8_t state;
   u8_t retries;
   struct tcp_pcb *pcb;
-  struct pbuf *recv;
-  struct pbuf *send;
+  struct pbuf *p;
   struct cs_callback *callback;
 };
 
 void cs_tcp_raw_send(struct tcp_pcb *tpcb, struct cs_tcp_raw_state *es);
+int cs_tcp_char_send(struct tcp_pcb *tpcb, struct cs_tcp_raw_state *state, char *buf, int buf_len);
 struct tcp_pcb *cs_tcp_raw_init(struct cs_callback *callback);
 
 #endif /* LWIP_TCPECHO_RAW_H */

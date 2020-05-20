@@ -1,3 +1,6 @@
 build
 build_ios_arm64/
 build_ios_armv7/
+csocks/pc/test/libcsocks.a
+csocks/pc/test/libcsocks.h
+csocks/pc/test/test

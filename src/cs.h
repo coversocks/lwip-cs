@@ -41,5 +41,7 @@ err_t cs_netif_init(struct netif *netif);
 void cs_lwip_app_platform_assert(const char *msg, int line, const char *file);
 int cs_ip_len(ip_addr_t *ipaddr);
 void cs_ip_get(const ip_addr_t *ipaddr, char *buf);
+int cs_init(struct cs_callback *back);
+void cs_netif_proc(struct netif *netif);
 
 #endif /* LWIP_CS_H */

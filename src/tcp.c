@@ -48,20 +48,16 @@
 #include "cs.h"
 
 #if LWIP_TCP && LWIP_CALLBACK_API
+static err_t cs_tcp_raw_sent(void *arg, struct tcp_pcb *tpcb, u16_t len);
 
 static void cs_tcp_raw_free(struct cs_tcp_raw_state *es)
 {
   if (es != NULL)
   {
-    if (es->recv)
+    if (es->p)
     {
       /* free the buffer chain if present */
-      pbuf_free(es->recv);
-    }
-    if (es->send)
-    {
-      /* free the buffer chain if present */
-      pbuf_free(es->send);
+      pbuf_free(es->p);
     }
 
     mem_free(es);
@@ -70,6 +66,7 @@ static void cs_tcp_raw_free(struct cs_tcp_raw_state *es)
 
 static void cs_tcp_raw_close(struct tcp_pcb *tpcb, struct cs_tcp_raw_state *es)
 {
+  // printf("cs_tcp_raw_close---->\n");
   tcp_arg(tpcb, NULL);
   tcp_sent(tpcb, NULL);
   tcp_recv(tpcb, NULL);
@@ -86,10 +83,10 @@ void cs_tcp_raw_send(struct tcp_pcb *tpcb, struct cs_tcp_raw_state *es)
   err_t wr_err = ERR_OK;
 
   while ((wr_err == ERR_OK) &&
-         (es->send != NULL) &&
-         (es->send->len <= tcp_sndbuf(tpcb)))
+         (es->p != NULL) &&
+         (es->p->len <= tcp_sndbuf(tpcb)))
   {
-    ptr = es->send;
+    ptr = es->p;
 
     /* enqueue data for transmission */
     wr_err = tcp_write(tpcb, ptr->payload, ptr->len, 1);
@@ -99,38 +96,34 @@ void cs_tcp_raw_send(struct tcp_pcb *tpcb, struct cs_tcp_raw_state *es)
 
       plen = ptr->len;
       /* continue with next pbuf in chain (if any) */
-      es->send = ptr->next;
-      if (es->send != NULL)
+      es->p = ptr->next;
+      if (es->p != NULL)
       {
         /* new reference! */
-        pbuf_ref(es->send);
+        pbuf_ref(es->p);
       }
       /* chop first pbuf from chain */
       pbuf_free(ptr);
-      // /* we can read more data now */
-      tcp_recved(tpcb, plen);
+      /* we can read more data now */
+      // tcp_recved(tpcb, plen);
     }
     else if (wr_err == ERR_MEM)
     {
       /* we are low on memory, try later / harder, defer to poll */
-      es->send = ptr;
+      es->p = ptr;
     }
     else
     {
-      // /* close */
-      // tcp_close(tpcb);
-      // pbuf_free(ptr);
-      // es->send = NULL;
+      /* other problem ?? */
+      printf("cs_tcp_raw_send write error:%d\n", wr_err);
     }
   }
-  if (es->send == NULL)
-  {
-    es->callback->tcp_send_done(es->callback->state, tpcb, es);
-  }
+  tcp_output(tpcb);
 }
 
 static void cs_tcp_raw_error(void *arg, err_t err)
 {
+  // printf("cs_tcp_raw_error---->\n");
   struct cs_tcp_raw_state *es;
   LWIP_ASSERT("arg != NULL", arg != NULL);
 
@@ -138,7 +131,8 @@ static void cs_tcp_raw_error(void *arg, err_t err)
 
   es = (struct cs_tcp_raw_state *)arg;
 
-  cs_tcp_raw_free(es);
+  // cs_tcp_raw_free(es);
+  cs_tcp_raw_close(es->pcb, es);
 }
 
 static err_t cs_tcp_raw_poll(void *arg, struct tcp_pcb *tpcb)
@@ -150,7 +144,7 @@ static err_t cs_tcp_raw_poll(void *arg, struct tcp_pcb *tpcb)
   es = (struct cs_tcp_raw_state *)arg;
   if (es != NULL)
   {
-    if (es->send != NULL)
+    if (es->p != NULL)
     {
       /* there is a remaining pbuf (chain)  */
       cs_tcp_raw_send(tpcb, es);
@@ -183,7 +177,7 @@ static err_t cs_tcp_raw_sent(void *arg, struct tcp_pcb *tpcb, u16_t len)
   es = (struct cs_tcp_raw_state *)arg;
   es->retries = 0;
 
-  if (es->send != NULL)
+  if (es->p != NULL)
   {
     /* still got pbufs to send */
     tcp_sent(tpcb, cs_tcp_raw_sent);
@@ -191,6 +185,10 @@ static err_t cs_tcp_raw_sent(void *arg, struct tcp_pcb *tpcb, u16_t len)
   }
   else
   {
+    if (es->p == NULL)
+    {
+      es->callback->tcp_send_done(es->callback->state, tpcb, es);
+    }
     /* no more pbufs to send */
     if (es->state == ES_CLOSING)
     {
@@ -211,16 +209,16 @@ static err_t cs_tcp_raw_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
   {
     /* remote host closed connection */
     es->state = ES_CLOSING;
-    if (es->send == NULL)
-    {
-      /* we're done sending, close it */
-      cs_tcp_raw_close(tpcb, es);
-    }
-    else
-    {
-      /* we're not done yet */
-      cs_tcp_raw_send(tpcb, es);
-    }
+    // if (es->p == NULL)
+    // {
+    /* we're done sending, close it */
+    cs_tcp_raw_close(tpcb, es);
+    // }
+    // else
+    // {
+    //   /* we're not done yet */
+    //   cs_tcp_raw_send(tpcb, es);
+    // }
     ret_err = ERR_OK;
   }
   else if (err != ERR_OK)
@@ -235,27 +233,29 @@ static err_t cs_tcp_raw_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
     es->state = ES_RECEIVED;
     /* store reference to incoming pbuf (chain) */
     /*
-    es->send = p;
+    es->p = p;
     cs_tcp_raw_send(tpcb, es);
     */
     ret_err = es->callback->tcp_recv(es->callback->state, tpcb, p, es);
+    // tcp_recved(tpcb, p->tot_len);
   }
   else if (es->state == ES_RECEIVED)
   {
     /* read some more data */
-    // if (es->send == NULL)
+    // if (es->p == NULL)
     // {
     /*
-      es->send = p;
+      es->p = p;
       cs_tcp_raw_send(tpcb, es);
       */
     ret_err = es->callback->tcp_recv(es->callback->state, tpcb, p, es);
+    // tcp_recved(tpcb, p->tot_len);
     // }
     // else
     // {
     //   struct pbuf *ptr;
     //   /* chain pbufs to the end of what we recv'ed previously  */
-    //   ptr = es->send;
+    //   ptr = es->p;
     //   pbuf_cat(ptr, p);
     // }
     // ret_err = ERR_OK;
@@ -290,20 +290,16 @@ static err_t cs_tcp_raw_accept(void *arg, struct tcp_pcb *newpcb, err_t err)
     es->state = ES_ACCEPTED;
     es->pcb = newpcb;
     es->retries = 0;
-    es->recv = NULL;
-    es->send = NULL;
+    es->p = NULL;
     es->callback = back;
     /* pass newly allocated es to our callbacks */
     tcp_arg(newpcb, es);
     tcp_recv(newpcb, cs_tcp_raw_recv);
     tcp_err(newpcb, cs_tcp_raw_error);
-    tcp_poll(newpcb, cs_tcp_raw_poll, 0);
+    tcp_poll(newpcb, cs_tcp_raw_poll, 1);
     tcp_sent(newpcb, cs_tcp_raw_sent);
-    ret_err = back->tcp_accept(back->state, newpcb, es);
-    if (ret_err != ERR_OK)
-    {
-      cs_tcp_raw_free(es);
-    }
+    back->tcp_accept(back->state, newpcb, es);
+    ret_err = ERR_OK;
   }
   else
   {
@@ -332,6 +328,32 @@ struct tcp_pcb *cs_tcp_raw_init(struct cs_callback *callback)
     }
   }
   return npcb;
+}
+
+int cs_tcp_char_send(struct tcp_pcb *tpcb, struct cs_tcp_raw_state *state, char *buf, int buf_len)
+{
+  if (state->p != NULL)
+  {
+    return 100;
+  }
+  struct pbuf *p = pbuf_alloc(PBUF_RAW, buf_len, PBUF_POOL);
+  if (p == NULL)
+  {
+    return 1;
+  }
+  pbuf_take(p, buf, buf_len);
+  if (state->p == NULL)
+  {
+    state->p = p;
+    cs_tcp_raw_send(tpcb, state);
+  }
+  else
+  {
+    struct pbuf *ptr;
+    ptr = state->p;
+    pbuf_cat(ptr, p);
+  }
+  return 0;
 }
 
 #endif /* LWIP_TCP && LWIP_CALLBACK_API */

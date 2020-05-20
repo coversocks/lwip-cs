@@ -18,7 +18,10 @@ func main() {
 		return
 	}
 	running = true
-	cc, _ := strconv.ParseInt(os.Args[2], 10, 64)
+	cc, err := strconv.ParseInt(os.Args[2], 10, 64)
+	if err != nil {
+		panic(err)
+	}
 	wg := &sync.WaitGroup{}
 	go showSended(wg)
 	if os.Args[1] == "n" {
@@ -52,7 +55,10 @@ func showSended(wg *sync.WaitGroup) {
 	for running {
 		time.Sleep(time.Second)
 		var now = uint64(time.Now().Local().UnixNano() / 1e6)
-		fmt.Printf("C(%v) S(%v,%v),R(%v,%v),S-R(%v)\n", conns, sended, sended/(now-begin), recved, recved/(now-begin), sended-recved)
+		fmt.Printf("C(%v) S(%v,%v/%v),R(%v,%v/%v),S-R(%v)\n", conns, sended,
+			sended/(now-begin), time.Millisecond,
+			recved, recved/(now-begin), time.Millisecond,
+			sended-recved)
 	}
 	wg.Done()
 }
@@ -63,6 +69,7 @@ func runConn(wg *sync.WaitGroup, netowrk, remote string, timeout time.Duration) 
 		fmt.Printf("connec error:%v\n", cerr)
 		return
 	}
+	// fmt.Printf("connecton to %v://%v success\n", netowrk, remote)
 	defer conn.Close()
 	atomic.AddInt32(&conns, 1)
 	if timeout > 0 {
@@ -83,7 +90,7 @@ func runConn(wg *sync.WaitGroup, netowrk, remote string, timeout time.Duration) 
 				break
 			}
 			atomic.AddUint64(&sended, uint64(writed))
-			time.Sleep(1000 * time.Microsecond)
+			// time.Sleep(1 * time.Nanosecond)
 			i++
 			totWrited += writed
 			// if totWrited > 100000 {
@@ -91,7 +98,7 @@ func runConn(wg *sync.WaitGroup, netowrk, remote string, timeout time.Duration) 
 			// 	break
 			// }
 		}
-		fmt.Printf("conn write done with %v\n", err)
+		// fmt.Printf("conn write done with %v\n", err)
 	}()
 	{
 		var readed int

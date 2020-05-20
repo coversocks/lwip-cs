@@ -169,18 +169,19 @@ err_t cs_tcp_accept(void *arg, struct tcp_pcb *newpcb, struct cs_tcp_raw_state *
 err_t cs_tcp_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, struct cs_tcp_raw_state *state)
 {
     // printf("---->cs_tcp_recv\n");
-    if (state->send == NULL)
-    {
-        state->send = p;
-        cs_tcp_raw_send(tpcb, state);
-    }
-    else
-    {
-        struct pbuf *ptr;
-        ptr = state->send;
-        pbuf_cat(ptr, p);
-    }
-    // pbuf_free(p);
+    // if (state->p == NULL)
+    // {
+    //     state->p = p;
+    //     cs_tcp_raw_send(tpcb, state);
+    // }
+    // else
+    // {
+    //     struct pbuf *ptr;
+    //     ptr = state->p;
+    //     pbuf_cat(ptr, p);
+    // }
+    tcp_recved(tpcb, p->tot_len);
+    pbuf_free(p);
     return ERR_OK;
 }
 void cs_tcp_send_done(void *arg, struct tcp_pcb *tpcb, struct cs_tcp_raw_state *state)
@@ -225,6 +226,8 @@ void cs_input_free(void *arg, struct netif *netif, char *buf)
     free(buf);
 }
 
+void tcpecho_raw_init(void);
+
 int main()
 {
     // init lwip
@@ -252,17 +255,17 @@ int main()
     {
         goto fail;
     }
+    // set netif default
+    netif_set_default(&netif);
 
     // set netif up
     netif_set_up(&netif);
 
     // set netif link up, otherwise ip route will refuse to route
-    netif_set_link_up(&netif);
-
-    // set netif default
-    netif_set_default(&netif);
+    // netif_set_link_up(&netif);
+    // tcpecho_raw_init();
     cs_tcp_raw_init(&back);
-    cs_udp_raw_init(&back);
+    // cs_udp_raw_init(&back);
     cs_tap_init(&netif);
     // udpecho_raw_init();
     while (1)

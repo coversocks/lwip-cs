@@ -113,6 +113,25 @@ err_t cs_udp_sendto(struct udp_pcb *upcb, struct pbuf *p, const ip_addr_t *addr,
   return udp_sendto_if_src(upcb, p, addr, port, cs_get_current_netif(upcb, addr, port), &upcb->local_ip);
 }
 
+int cs_udp_char_sendto(struct udp_pcb *upcb, ip_addr_t *laddr, u16_t lport, ip_addr_t *raddr, uint16_t rport, char *buf, int buf_len)
+{
+  struct pbuf *p = pbuf_alloc(PBUF_RAW, buf_len, PBUF_POOL);
+  if (p == NULL)
+  {
+    return 1;
+  }
+  pbuf_take(p, buf, buf_len);
+  ip_addr_t old_addr = upcb->local_ip;
+  u16_t old_port = upcb->local_port;
+  upcb->local_ip = *laddr;
+  upcb->local_port = lport;
+  cs_udp_sendto(upcb, p, raddr, rport);
+  upcb->local_ip = old_addr;
+  upcb->local_port = old_port;
+  pbuf_free(p);
+  return 0;
+}
+
 static void cs_udp_raw_recv(void *arg, struct udp_pcb *upcb, struct pbuf *p,
                             const ip_addr_t *addr, u16_t port)
 {

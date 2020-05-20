@@ -78,7 +78,7 @@
 int tap_fd = -1;
 
 /*-----------------------------------------------------------------------------------*/
-err_t cs_tap_init(struct netif *netif)
+err_t test_tap_init(struct netif *netif)
 {
 #if LWIP_IPV4
   int ret;
@@ -145,17 +145,28 @@ err_t cs_tap_init(struct netif *netif)
 #endif /* LWIP_IPV4 */
   return ERR_OK;
 }
-ssize_t cs_output(void *arg, struct netif *netif, const char *buf, u16_t len)
+ssize_t test_output(void *arg, const char *buf, u16_t len)
 {
-  // printf("---->cs_output\n");
   return write(tap_fd, buf, len);
 }
-struct pbuf *cs_input(void *arg, struct netif *netif, u16_t *readlen)
+ssize_t test_input(void *arg, char *buf, u16_t len)
+{
+  // printf("----->input\n");
+  ssize_t l=read(tap_fd, buf, len);
+  // printf("----->input done %ld \n",l);
+  return l;
+}
+
+ssize_t test_raw_output_h(void *arg, struct netif *netif, const char *buf, u16_t len)
+{
+  return test_output(arg, buf, len);
+}
+
+struct pbuf *test_raw_input_h(void *arg, struct netif *netif, u16_t *readlen)
 {
   char buf[1518];
   struct pbuf *p;
-  ssize_t len;
-  len = read(tap_fd, buf, 1518);
+  ssize_t len = test_input(arg, buf, 1518);
   if (len < 1)
   {
     *readlen = 0;
@@ -169,54 +180,80 @@ struct pbuf *cs_input(void *arg, struct netif *netif, u16_t *readlen)
   return p;
 }
 
+err_t test_tcp_accept(void *arg, struct tcp_pcb *newpcb, struct cs_tcp_raw_state *state)
+{
+  printf("---->cs_tcp_accept\n");
+  return ERR_OK;
+}
+err_t test_tcp_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, struct cs_tcp_raw_state *state)
+{
+  printf("---->cs_tcp_recv\n");
+  // if (state->send == NULL)
+  // {
+  //   state->send = p;
+  //   cs_tcp_raw_send(tpcb, state);
+  // }
+  // else
+  // {
+  //   struct pbuf *ptr;
+  //   ptr = state->send;
+  //   pbuf_cat(ptr, p);
+  // }
+  tcp_recved(tpcb, p->tot_len);
+  pbuf_free(p);
+  return ERR_OK;
+}
+void test_tcp_send_done(void *arg, struct tcp_pcb *tpcb, struct cs_tcp_raw_state *state)
+{
+}
+void test_tcp_close(void *arg, struct tcp_pcb *tpcb, struct cs_tcp_raw_state *state)
+{
+  printf("---->cs_tcp_close\n");
+}
+
+err_t test_udp_recv(void *arg, struct udp_pcb *upcb, struct pbuf *p, const ip_addr_t *addr, u16_t port)
+{
+  // printf("---->cs_udp_recv\n");
+  cs_udp_sendto(upcb, p, addr, port);
+  pbuf_free(p);
+  return ERR_OK;
+}
+
 int main()
 {
   printf("starting test\n");
+  go_cs_callback gback;
+  gback.tcp_recved = tcp_recved;
+  gback.tcp_send = cs_tcp_char_send;
+  gback.tcp_close = tcp_close;
+  gback.udp_send = cs_udp_char_sendto;
+  gback.ip_get = cs_ip_get;
+  gback.pbuf_alloc = pbuf_alloc;
+  gback.pbuf_take = pbuf_take;
+  gback.pbuf_copy = pbuf_copy_partial;
+  gback.pbuf_free = pbuf_free;
+  gback.netif_proc = cs_netif_proc;
+  gback.input = test_input;
+  gback.output = test_output;
   struct cs_callback back;
-  back.input = cs_input;
-  back.output = cs_output;
-  struct netif *netif;
-  netif = go_cs_init(&back);
-  cs_tap_init(netif);
-  go_cs_proc(netif);
+  struct netif netif;
+  back.netif = &netif;
+  gback.netif = &netif;
+  gback.state = &back;
+  //
+  go_cs_init(&gback);
+  go_cs_init_handle(&back);
+  cs_init(&back);
+  // back.tcp_accept = test_tcp_accept;
+  // back.tcp_close = test_tcp_close;
+  // back.tcp_send_done = test_tcp_send_done;
+  // back.tcp_recv = test_tcp_recv;
+  back.output=test_raw_output_h;
+  //
+  test_tap_init(&netif);
+  //
+  go_cs_proc(&netif);
 }
-
-// err_t cs_tcp_accept(void *arg, struct tcp_pcb *newpcb, struct cs_tcp_raw_state *state)
-// {
-//     printf("---->cs_tcp_accept\n");
-//     return ERR_OK;
-// }
-// err_t cs_tcp_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, struct cs_tcp_raw_state *state)
-// {
-//     // printf("---->cs_tcp_recv\n");
-//     if (state->send == NULL)
-//     {
-//         state->send = p;
-//         cs_tcp_raw_send(tpcb, state);
-//     }
-//     else
-//     {
-//         struct pbuf *ptr;
-//         ptr = state->send;
-//         pbuf_cat(ptr, p);
-//     }
-//     return ERR_OK;
-// }
-// void cs_tcp_send_done(void *arg, struct tcp_pcb *tpcb, struct cs_tcp_raw_state *state)
-// {
-// }
-// void cs_tcp_close(void *arg, struct tcp_pcb *tpcb, struct cs_tcp_raw_state *state)
-// {
-//     printf("---->cs_tcp_close\n");
-// }
-
-// err_t cs_udp_recv(void *arg, struct udp_pcb *upcb, struct pbuf *p, const ip_addr_t *addr, u16_t port)
-// {
-//   // printf("---->cs_udp_recv\n");
-//   cs_udp_sendto(upcb, p, addr, port);
-//   pbuf_free(p);
-//   return ERR_OK;
-// }
 
 #define LWIP_PORT_INIT_IPADDR(addr) IP4_ADDR((addr), 192, 168, 100, 200)
 #define LWIP_PORT_INIT_GW(addr) IP4_ADDR((addr), 192, 168, 100, 1)
@@ -236,22 +273,22 @@ int main()
 //   LWIP_PORT_INIT_NETMASK(&netmask);
 //   struct netif netif;
 //   struct cs_callback back;
-//   back.tcp_accept = go_cs_tcp_accept_h;
-//   back.tcp_recv = go_cs_tcp_recv_h;
-//   back.tcp_send_done = go_cs_tcp_send_done_h;
-//   back.tcp_close = go_cs_tcp_close_h;
-//   back.udp_recv = go_cs_udp_recv_h;
-//   // back.tcp_accept = cs_tcp_accept;
-//   // back.tcp_recv = cs_tcp_recv;
-//   // back.tcp_send_done = cs_tcp_send_done;
-//   // back.tcp_close = cs_tcp_close;
-//   // back.udp_recv = cs_udp_recv;
+//   // back.tcp_accept = go_cs_tcp_accept_h;
+//   // back.tcp_recv = go_cs_tcp_recv_h;
+//   // back.tcp_send_done = go_cs_tcp_send_done_h;
+//   // back.tcp_close = go_cs_tcp_close_h;
+//   // back.udp_recv = go_cs_udp_recv_h;
+//   back.tcp_accept = test_tcp_accept;
+//   back.tcp_recv = test_tcp_recv;
+//   back.tcp_send_done = test_tcp_send_done;
+//   back.tcp_close = test_tcp_close;
+//   back.udp_recv = test_udp_recv;
 
 //   // back.input = go_cs_input_h;
 //   // back.input_free = go_cs_input_free_h;
 //   // back.output = go_cs_output_h;
-//   back.input = cs_input;
-//   back.output = cs_output;
+//   back.input = test_raw_input_h;
+//   back.output = test_raw_output_h;
 //   back.netif = &netif;
 //   // init netif
 //   if (!netif_add(&netif, &addr, &netmask, &gw, &back, cs_netif_init, ethernet_input))
@@ -269,7 +306,7 @@ int main()
 //   netif_set_default(&netif);
 //   cs_tcp_raw_init(&back);
 //   cs_udp_raw_init(&back);
-//   cs_tap_init(&netif);
+//   test_tap_init(&netif);
 //   // pthread_t send_s;
 //   // pthread_create(&send_s, NULL, test_send, &netif);
 //   // pthread_t recv_s;
@@ -277,11 +314,11 @@ int main()
 //   // udpecho_raw_init();
 //   while (1)
 //   {
-//     // cs_netif_input(&netif);
+//     cs_netif_input(&netif);
 //     // default_netif_poll();
 //     // tapif_poll(&netif);
-//     // netif_poll_all();
-//     go_cs_proc(&netif);
+//     netif_poll_all();
+//     // go_cs_proc(&netif);
 //   }
 // fail:
 //   printf("all done");

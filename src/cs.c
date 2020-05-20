@@ -1,4 +1,3 @@
-#include "cs.h"
 #include "lwip/opt.h"
 #include "lwip/debug.h"
 #include "lwip/def.h"
@@ -12,6 +11,9 @@
 #include "netif/etharp.h"
 #include "lwip/ethip6.h"
 #include <netif/ethernet.h>
+#include "cs.h"
+#include "tcp.h"
+#include "udp.h"
 
 /* Define those to better describe your network interface. */
 #define IFNAME0 't'
@@ -208,4 +210,41 @@ void cs_ip_get(const ip_addr_t *ipaddr, char *buf)
     buf[2] = ip4_addr3_val(*ip_2_ip4(ipaddr));
     buf[3] = ip4_addr4_val(*ip_2_ip4(ipaddr));
   }
+}
+
+#define LWIP_PORT_INIT_IPADDR(addr) IP4_ADDR((addr), 192, 168, 100, 200)
+#define LWIP_PORT_INIT_GW(addr) IP4_ADDR((addr), 192, 168, 100, 1)
+#define LWIP_PORT_INIT_NETMASK(addr) IP4_ADDR((addr), 255, 255, 255, 0)
+
+int cs_init(struct cs_callback *back)
+{
+    // init lwip
+    lwip_init();
+    ip4_addr_t addr;
+    ip4_addr_t netmask;
+    ip4_addr_t gw;
+    LWIP_PORT_INIT_GW(&gw);
+    LWIP_PORT_INIT_IPADDR(&addr);
+    LWIP_PORT_INIT_NETMASK(&netmask);
+    struct netif *netif = back->netif;
+    // init netif
+    if (!netif_add(netif, &addr, &netmask, &gw, back, cs_netif_init, ethernet_input))
+    {
+        return -1;
+    }
+    // set netif up
+    netif_set_up(netif);
+    // set netif link up, otherwise ip route will refuse to route
+    netif_set_link_up(netif);
+    // set netif default
+    netif_set_default(netif);
+    cs_tcp_raw_init(back);
+    cs_udp_raw_init(back);
+    return 0;
+}
+
+void cs_netif_proc(struct netif *netif)
+{
+    cs_netif_input(netif);
+    netif_poll_all();
 }

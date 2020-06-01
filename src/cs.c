@@ -32,7 +32,7 @@ static struct pbuf *cs_low_level_input(struct netif *netif)
 {
   struct pbuf *p;
   u16_t readlen = 0;
-  struct cs_callback *back = netif->state;
+  cs_callback *back = netif->state;
   p = back->input(back->state, netif, &readlen);
   MIB2_STATS_NETIF_ADD(netif, ifinoctets, readlen);
   if (p == NULL)
@@ -86,7 +86,7 @@ void cs_netif_input(struct netif *netif)
 err_t cs_low_level_output(struct netif *netif, struct pbuf *p)
 {
   ssize_t written;
-  struct cs_callback *back = netif->state;
+  cs_callback *back = netif->state;
   char buf[1518]; /* max packet size including VLAN excluding CRC */
 
   if (p->tot_len > sizeof(buf))
@@ -216,7 +216,7 @@ void cs_ip_get(const ip_addr_t *ipaddr, char *buf)
 #define LWIP_PORT_INIT_GW(addr) IP4_ADDR((addr), 192, 168, 100, 1)
 #define LWIP_PORT_INIT_NETMASK(addr) IP4_ADDR((addr), 255, 255, 255, 0)
 
-int cs_init(struct cs_callback *back)
+int cs_init(cs_callback *back)
 {
     // init lwip
     lwip_init();

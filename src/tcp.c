@@ -274,7 +274,7 @@ static err_t cs_tcp_raw_accept(void *arg, struct tcp_pcb *newpcb, err_t err)
 {
   err_t ret_err;
   struct cs_tcp_raw_state *es;
-  struct cs_callback *back = arg;
+  cs_callback *back = arg;
   if ((err != ERR_OK) || (newpcb == NULL) || (back == NULL))
   {
     return ERR_VAL;
@@ -308,7 +308,7 @@ static err_t cs_tcp_raw_accept(void *arg, struct tcp_pcb *newpcb, err_t err)
   return ret_err;
 }
 
-struct tcp_pcb *cs_tcp_raw_init(struct cs_callback *callback)
+struct tcp_pcb *cs_tcp_raw_init(cs_callback *callback)
 {
   err_t err;
   struct tcp_pcb *npcb = tcp_new_ip_type(IPADDR_TYPE_ANY);

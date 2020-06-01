@@ -87,7 +87,7 @@ func (e *Echo) OnRecv(pcb *lwipcs.PCB, data []byte) {
 	}
 	fmt.Printf("udp from %v\n", pcb.RemoteAddr())
 	fmt.Printf("udp recv %v\n", data)
-	pcb.Write(data)
+	// pcb.Write(data)
 }
 
 func init() {

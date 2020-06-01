@@ -137,12 +137,12 @@ static void cs_udp_raw_recv(void *arg, struct udp_pcb *upcb, struct pbuf *p,
 {
   if (p != NULL)
   {
-    struct cs_callback *back = arg;
+    cs_callback *back = arg;
     back->udp_recv(back, upcb, p, addr, port);
   }
 }
 
-struct udp_pcb *cs_udp_raw_init(struct cs_callback *back)
+struct udp_pcb *cs_udp_raw_init(cs_callback *back)
 {
   struct udp_pcb *npcb = udp_new_ip_type(IPADDR_TYPE_ANY);
   if (npcb != NULL)

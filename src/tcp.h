@@ -47,11 +47,11 @@ struct cs_tcp_raw_state
   u8_t retries;
   struct tcp_pcb *pcb;
   struct pbuf *p;
-  struct cs_callback *callback;
+  cs_callback *callback;
 };
 
 void cs_tcp_raw_send(struct tcp_pcb *tpcb, struct cs_tcp_raw_state *es);
 int cs_tcp_char_send(struct tcp_pcb *tpcb, struct cs_tcp_raw_state *state, char *buf, int buf_len);
-struct tcp_pcb *cs_tcp_raw_init(struct cs_callback *callback);
+struct tcp_pcb *cs_tcp_raw_init(cs_callback *callback);
 
 #endif /* LWIP_TCPECHO_RAW_H */

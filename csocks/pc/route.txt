@@ -1,0 +1,16 @@
+Fri May 22 12:09:12 2020 /sbin/ifconfig utun4 10.8.0.2 10.8.0.2 netmask 255.255.255.0 mtu 1500 up
+Fri May 22 12:09:12 2020 /sbin/route add -net 10.8.0.0 10.8.0.2 255.255.255.0
+add net 10.8.0.0: gateway 10.8.0.2
+Fri May 22 12:09:12 2020 /sbin/route add -net 10.211.55.23 192.168.0.1 255.255.255.255
+add net 10.211.55.23: gateway 192.168.0.1
+Fri May 22 12:09:12 2020 /sbin/route add -net 0.0.0.0 10.8.0.1 128.0.0.0
+add net 0.0.0.0: gateway 10.8.0.1
+Fri May 22 12:09:12 2020 /sbin/route add -net 128.0.0.0 10.8.0.1 128.0.0.0
+add net 128.0.0.0: gateway 10.8.0.1
+
+
+
+/sbin/route add -net 192.168.100.0 192.168.100.2 255.255.255.0
+/sbin/route add -net 192.168.100.200 192.168.0.1 255.255.255.255
+/sbin/route add -net 0.0.0.0 192.168.100.1 128.0.0.0
+/sbin/route add -net 128.0.0.0 192.168.100.1 128.0.0.0

@@ -72,7 +72,7 @@ struct pbuf *go_cs_input_h(void *arg, struct netif *netif, u16_t *readlen)
     return go_input_h(arg, netif, readlen);
 }
 
-void go_cs_init_handle(struct cs_callback *back)
+void go_cs_init_handle(cs_callback *back)
 {
     back->tcp_accept = go_cs_tcp_accept_h;
     back->tcp_recv = go_cs_tcp_recv_h;

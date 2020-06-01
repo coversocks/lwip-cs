@@ -33,4 +33,4 @@ export GOPATH=/Users/vty/go
 export GOARM=7
 export GOARCH=arm
 # go build -buildmode=c-archive -o libmobile.a .
-go build -buildmode=c-shared -o libmobile.so .
+go build -buildmode=c-shared -o libmobile.so ../mobile

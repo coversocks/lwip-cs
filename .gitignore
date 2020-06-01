@@ -5,3 +5,9 @@ echo/test/libcsocks.a
 echo/test/libcsocks.h
 echo/test/test
 test/test
+csocks/pc/test/test
+csocks/pc/test/libcsocks.h
+csocks/pc/test/libcsocks.a
+build_android_armv7
+csocks/android/libmobile.h
+csocks/android/libmobile.so

@@ -12,7 +12,7 @@ void go_cs_tcp_close_h(void *arg, struct tcp_pcb *tpcb, struct cs_tcp_raw_state 
 err_t go_cs_udp_recv_h(void *arg, struct udp_pcb *upcb, struct pbuf *p, const ip_addr_t *addr, u16_t port);
 struct pbuf *go_cs_input_h(void *arg, struct netif *netif, u16_t *readlen);
 ssize_t go_cs_output_h(void *arg, struct netif *netif, const char *buf, u16_t len);
-void go_cs_init_handle(struct cs_callback *back);
+void go_cs_init_handle(cs_callback *back);
 
 typedef void (*go_cs_tcp_recved_fn)(struct tcp_pcb *tpcb, u16_t len);
 typedef int (*go_cs_tcp_send_fn)(struct tcp_pcb *tpcb, struct cs_tcp_raw_state *state, char *buf, int buf_len);
@@ -74,6 +74,7 @@ extern int go_tcp_send_done_h(void *arg, void *tpcb, void *state);
 extern int go_tcp_close_h(void *arg, void *tpcb, void *state);
 extern int go_udp_recv_h(void *arg, void *upcb, const ip_addr_t *addr, int port, void *p);
 extern void *go_input_h(void *arg, void *netif, u16_t *readlen);
+extern ssize_t go_output_h(void *arg, void *netif, const char *buf, u16_t len);
 extern void go_netif_proc(void *netif_);
 #endif
 

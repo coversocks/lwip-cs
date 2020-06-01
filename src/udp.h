@@ -38,6 +38,6 @@
 err_t cs_udp_sendto(struct udp_pcb *upcb, struct pbuf *p, const ip_addr_t *addr, u16_t port);
 int cs_udp_char_sendto(struct udp_pcb *upcb, ip_addr_t *laddr, u16_t lport, ip_addr_t *raddr, uint16_t rport, char *buf, int buf_len);
 struct netif *cs_get_current_netif(struct udp_pcb *pcb, const ip_addr_t *dst_ip, u16_t dst_port);
-struct udp_pcb *cs_udp_raw_init(struct cs_callback *back);
+struct udp_pcb *cs_udp_raw_init(cs_callback *back);
 
 #endif /* LWIP_UDPECHO_RAW_H */

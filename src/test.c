@@ -241,7 +241,7 @@ int main()
     LWIP_PORT_INIT_IPADDR(&addr);
     LWIP_PORT_INIT_NETMASK(&netmask);
     struct netif netif;
-    struct cs_callback back;
+    cs_callback back;
     back.tcp_accept = cs_tcp_accept;
     back.tcp_recv = cs_tcp_recv;
     back.tcp_send_done = cs_tcp_send_done;

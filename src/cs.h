@@ -23,7 +23,7 @@ typedef err_t (*cs_udp_recv_fn)(void *arg, struct udp_pcb *upcb, struct pbuf *p,
 typedef ssize_t (*cs_output_fn)(void *arg, struct netif *netif, const char *buf, u16_t len);
 typedef struct pbuf *(*cs_input_fn)(void *arg, struct netif *netif, u16_t *readlen);
 
-struct cs_callback
+typedef struct
 {
   void *state;
   struct netif *netif;
@@ -34,14 +34,14 @@ struct cs_callback
   cs_udp_recv_fn udp_recv;
   cs_output_fn output;
   cs_input_fn input;
-};
+} cs_callback;
 
 void cs_netif_input(struct netif *netif);
 err_t cs_netif_init(struct netif *netif);
 void cs_lwip_app_platform_assert(const char *msg, int line, const char *file);
 int cs_ip_len(ip_addr_t *ipaddr);
 void cs_ip_get(const ip_addr_t *ipaddr, char *buf);
-int cs_init(struct cs_callback *back);
+int cs_init(cs_callback *back);
 void cs_netif_proc(struct netif *netif);
 
 #endif /* LWIP_CS_H */

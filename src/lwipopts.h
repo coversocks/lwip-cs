@@ -78,8 +78,8 @@
 
 #define LWIP_DBG_MIN_LEVEL         0
 #define PPP_DEBUG                  LWIP_DBG_OFF
-#define MEM_DEBUG                  LWIP_DBG_ON
-#define MEMP_DEBUG                 LWIP_DBG_ON
+#define MEM_DEBUG                  LWIP_DBG_OFF
+#define MEMP_DEBUG                 LWIP_DBG_OFF
 #define PBUF_DEBUG                 LWIP_DBG_OFF
 #define API_LIB_DEBUG              LWIP_DBG_OFF
 #define API_MSG_DEBUG              LWIP_DBG_OFF
@@ -94,8 +94,8 @@
 #define ICMP_DEBUG                 LWIP_DBG_OFF
 #define IGMP_DEBUG                 LWIP_DBG_OFF
 #define UDP_DEBUG                  LWIP_DBG_OFF
-#define TCP_DEBUG                  LWIP_DBG_ON
-#define TCP_INPUT_DEBUG            LWIP_DBG_ON
+#define TCP_DEBUG                  LWIP_DBG_OFF
+#define TCP_INPUT_DEBUG            LWIP_DBG_OFF
 #define TCP_OUTPUT_DEBUG           LWIP_DBG_OFF
 #define TCP_RTO_DEBUG              LWIP_DBG_OFF
 #define TCP_CWND_DEBUG             LWIP_DBG_OFF
@@ -118,27 +118,27 @@
 
 /* MEM_SIZE: the size of the heap memory. If the application will send
 a lot of data that needs to be copied, this should be set high. */
-#define MEM_SIZE               1024*1024*1024
+#define MEM_SIZE               10240
 
 /* MEMP_NUM_PBUF: the number of memp struct pbufs. If the application
    sends a lot of data out of ROM (or other static memory), this
    should be set high. */
-#define MEMP_NUM_PBUF           1024*1024*1024
+#define MEMP_NUM_PBUF           16
 /* MEMP_NUM_RAW_PCB: the number of UDP protocol control blocks. One
    per active RAW "connection". */
-#define MEMP_NUM_RAW_PCB        1024
+#define MEMP_NUM_RAW_PCB        3
 /* MEMP_NUM_UDP_PCB: the number of UDP protocol control blocks. One
    per active UDP "connection". */
-#define MEMP_NUM_UDP_PCB        1024
+#define MEMP_NUM_UDP_PCB        4
 /* MEMP_NUM_TCP_PCB: the number of simulatenously active TCP
    connections. */
-#define MEMP_NUM_TCP_PCB        128
+#define MEMP_NUM_TCP_PCB        5
 /* MEMP_NUM_TCP_PCB_LISTEN: the number of listening TCP
    connections. */
 #define MEMP_NUM_TCP_PCB_LISTEN 8
 /* MEMP_NUM_TCP_SEG: the number of simultaneously queued TCP
    segments. */
-#define MEMP_NUM_TCP_SEG        1024
+#define MEMP_NUM_TCP_SEG        16
 /* MEMP_NUM_SYS_TIMEOUT: the number of simulateously active
    timeouts. */
 #define MEMP_NUM_SYS_TIMEOUT    17
@@ -148,7 +148,7 @@ a lot of data that needs to be copied, this should be set high. */
 /* MEMP_NUM_NETBUF: the number of struct netbufs. */
 #define MEMP_NUM_NETBUF         2
 /* MEMP_NUM_NETCONN: the number of struct netconns. */
-#define MEMP_NUM_NETCONN        12
+#define MEMP_NUM_NETCONN        10
 /* MEMP_NUM_TCPIP_MSG_*: the number of struct tcpip_msg, which is used
    for sequential API communication and incoming packets. Used in
    src/api/tcpip.c. */
@@ -158,7 +158,7 @@ a lot of data that needs to be copied, this should be set high. */
 
 /* ---------- Pbuf options ---------- */
 /* PBUF_POOL_SIZE: the number of buffers in the pbuf pool. */
-#define PBUF_POOL_SIZE          1024*16
+#define PBUF_POOL_SIZE          120
 
 /* PBUF_POOL_BUFSIZE: the size of each pbuf in the pbuf pool. */
 #define PBUF_POOL_BUFSIZE       256
@@ -284,7 +284,7 @@ a lot of data that needs to be copied, this should be set high. */
 
 /* ---------- PPP options ---------- */
 
-#define PPP_SUPPORT             1      /* Set > 0 for PPP */
+#define PPP_SUPPORT             0      /* Set > 0 for PPP */
 
 #if PPP_SUPPORT
 
@@ -315,14 +315,15 @@ a lot of data that needs to be copied, this should be set high. */
 #if !defined(NO_SYS) || !NO_SYS /* default is 0 */
 void sys_check_core_locking(void);
 #define LWIP_ASSERT_CORE_LOCKED()  sys_check_core_locking()
-#endif
+void sys_mark_tcpip_thread(void);
+#define LWIP_MARK_TCPIP_THREAD()   sys_mark_tcpip_thread()
 
-#ifndef LWIP_PLATFORM_ASSERT
-/* Define LWIP_PLATFORM_ASSERT to something to catch missing stdio.h includes */
-void cs_lwip_app_platform_assert(const char *msg, int line, const char *file);
-#define LWIP_PLATFORM_ASSERT(x) cs_lwip_app_platform_assert(x, __LINE__, __FILE__)
+#if !defined(LWIP_TCPIP_CORE_LOCKING) || LWIP_TCPIP_CORE_LOCKING /* default is 1 */
+void sys_lock_tcpip_core(void);
+#define LOCK_TCPIP_CORE()          sys_lock_tcpip_core()
+void sys_unlock_tcpip_core(void);
+#define UNLOCK_TCPIP_CORE()        sys_unlock_tcpip_core()
 #endif
-
-#define LWIP_TCPIP_CORE_LOCKING_INPUT 1
+#endif
 
 #endif /* LWIP_LWIPOPTS_H */

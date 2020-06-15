@@ -22,6 +22,7 @@ typedef err_t (*cs_udp_recv_fn)(void *arg, struct udp_pcb *upcb, struct pbuf *p,
 typedef err_t (*cs_udp_recv_fn)(void *arg, struct udp_pcb *upcb, struct pbuf *p, const ip_addr_t *addr, u16_t port);
 typedef ssize_t (*cs_output_fn)(void *arg, struct netif *netif, const char *buf, u16_t len);
 typedef struct pbuf *(*cs_input_fn)(void *arg, struct netif *netif, u16_t *readlen);
+typedef void (*cs_init_fn)(void *arg, struct netif *netif);
 
 typedef struct
 {
@@ -34,6 +35,7 @@ typedef struct
   cs_udp_recv_fn udp_recv;
   cs_output_fn output;
   cs_input_fn input;
+  cs_init_fn init;
 } cs_callback;
 
 void cs_netif_input(struct netif *netif);

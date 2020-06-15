@@ -83,6 +83,52 @@ func (s *SchemeDistProcessor) ProcConn(raw io.ReadWriteCloser, target string) (e
 	return
 }
 
+//DNSGFW impl check if domain in gfw list
+type DNSGFW struct {
+	list map[string]string
+}
+
+//NewDNSGFW will create new GFWList
+func NewDNSGFW() (gfw *DNSGFW) {
+	gfw = &DNSGFW{
+		list: map[string]string{
+			"*": "dns://local",
+		},
+	}
+	return
+}
+
+//Add list
+func (d *DNSGFW) Add(list, target string) {
+	d.list[list] = target
+}
+
+//Find domain target
+func (d *DNSGFW) Find(domain string) (target string) {
+	parts := strings.SplitAfterN(domain, ".", 3)
+	if len(parts) < 2 {
+		target = d.list["*"]
+		return
+	}
+	if len(parts) == 3 {
+		parts = parts[1:]
+	}
+	for i, p := range parts {
+		parts[i] = strings.Trim(p, ".")
+	}
+	ptxt := fmt.Sprintf("[\\|\\.]*%v\\.%v$", parts[0], parts[1])
+	pattern := regexp.MustCompile(ptxt)
+	for key, val := range d.list {
+		// fmt.Printf("testing %v,%v,%v\n", ptxt, key, pattern.MatchString(key))
+		if pattern.MatchString(key) {
+			target = val
+			return
+		}
+	}
+	target = d.list["*"]
+	return
+}
+
 //DNSConn impl the dns connection for read/write dns message
 type DNSConn struct {
 	p          *DNSProcessor
@@ -114,10 +160,12 @@ func (d *DNSConn) Read(p []byte) (n int, err error) {
 		return
 	}
 	n = copy(p, data)
+	// fmt.Printf("DNSConn(%p).Read---->%v,%v\n", d, n, data)
 	return
 }
 
 func (d *DNSConn) Write(p []byte) (n int, err error) {
+	// fmt.Printf("DNSConn(%v).Write---->%v,%v\n", d, len(p), p)
 	n, err = d.base.Write(p)
 	return
 }
@@ -134,45 +182,8 @@ func (d *DNSConn) Close() (err error) {
 	return
 }
 
-//DNSGFW impl check if domain in gfw list
-type DNSGFW struct {
-	list map[string]string
-}
-
-//NewDNSGFW will create new GFWList
-func NewDNSGFW() (gfw *DNSGFW) {
-	gfw = &DNSGFW{
-		list: map[string]string{
-			"*": "dns://local",
-		},
-	}
-	return
-}
-
-//Add list
-func (d *DNSGFW) Add(list, target string) {
-	d.list[list] = target
-}
-
-//Find domain target
-func (d *DNSGFW) Find(domain string) (target string) {
-	parts := strings.SplitAfterN(domain, ".", 3)
-	if len(parts) < 2 {
-		target = d.list["*"]
-		return
-	}
-	if len(parts) == 3 {
-		parts = parts[1:]
-	}
-	pattern := regexp.MustCompile(fmt.Sprintf("[\\|\\.]*%v\\.%v$", parts[0], parts[1]))
-	for key, val := range d.list {
-		if pattern.MatchString(key) {
-			target = val
-			return
-		}
-	}
-	target = d.list["*"]
-	return
+func (d *DNSConn) String() string {
+	return fmt.Sprintf("DNSConn(%v)", d.base)
 }
 
 //DNSProcessor impl to core.Processor for process dns connection
@@ -209,8 +220,8 @@ func (d *DNSProcessor) close(c *DNSConn) {
 func (d *DNSProcessor) proc(r io.ReadWriteCloser) {
 	var n int
 	var err error
-	buf := make([]byte, 10240)
 	for {
+		buf := make([]byte, 4096)
 		n, err = r.Read(buf)
 		if err != nil {
 			break
@@ -236,6 +247,7 @@ func (d *DNSProcessor) proc(r io.ReadWriteCloser) {
 			d.conns[key] = conn
 			d.connsLck.Unlock()
 		}
+		// fmt.Printf("DNSProcessor(%v).Queued %p---->%v,%v\n", conn, conn, n, buf[0:n])
 		conn.readQueued <- buf[0:n]
 	}
 }
@@ -257,14 +269,19 @@ func NewDNSRecordConn(p *DNSRecordProcessor, base io.ReadWriteCloser) (conn *DNS
 
 func (d *DNSRecordConn) Read(p []byte) (n int, err error) {
 	n, err = d.base.Read(p)
+	// fmt.Printf("DNSRecordConn(%v).Read---->%v,%v\n", d, n, p[0:n])
 	return
 }
 
 func (d *DNSRecordConn) Write(p []byte) (n int, err error) {
+	// fmt.Printf("DNSRecordConn(%v).Write---->%v,%v\n", d, len(p), p)
 	msg := new(dns.Msg)
-	if xerr := msg.Unpack(p); xerr == nil && len(msg.Extra) > 0 {
-		if a, ok := msg.Extra[0].(*dns.A); ok {
-			d.p.Record(a.A.String(), a.Hdr.Name)
+	if xerr := msg.Unpack(p); xerr == nil && len(msg.Answer) > 0 {
+		for _, answer := range msg.Answer {
+			if a, ok := answer.(*dns.A); ok {
+				core.DebugLog("DNSRecord recoding %v->%v", a.Hdr.Name, a.A)
+				d.p.Record(a.A.String(), a.Hdr.Name)
+			}
 		}
 	}
 	n, err = d.base.Write(p)
@@ -274,7 +291,12 @@ func (d *DNSRecordConn) Write(p []byte) (n int, err error) {
 //Close will close base connection
 func (d *DNSRecordConn) Close() (err error) {
 	err = d.base.Close()
+	core.DebugLog("%v is closed", d)
 	return
+}
+
+func (d *DNSRecordConn) String() string {
+	return fmt.Sprintf("DNSRecordConn(%v)", d.base)
 }
 
 //DNSRecordProcessor to impl processor for record dns response
@@ -344,7 +366,7 @@ func (p *PACProcessor) ProcConn(r io.ReadWriteCloser, target string) (err error)
 	if err != nil {
 		return
 	}
-	if u.Host == "proxy" || (p.Record != nil && p.Record.IsRecorded(u.Host)) {
+	if u.Host == "proxy" || (p.Record != nil && p.Record.IsRecorded(u.Hostname())) {
 		err = p.Proxy.ProcConn(r, target)
 	} else {
 		err = p.Direct.ProcConn(r, target)
@@ -377,14 +399,16 @@ func NewLwipHandler(proxy, direct core.Processor) (handler *LwipHandler) {
 
 //OnAccept will handler the tcp accept
 func (l *LwipHandler) OnAccept(pcb *lwipcs.PCB) {
-	core.DebugLog("accept %v from %v to %v", pcb.Type, pcb.RemoteAddr(), pcb.LocalAddr())
+	core.DebugLog("LWIP accept %v from %v to %v", pcb.Type, pcb.RemoteAddr(), pcb.LocalAddr())
 	err := l.Next.ProcConn(pcb, pcb.Type+"://"+pcb.LocalAddr().String())
-	if err != nil {
-		core.DebugLog("accept %v from %v to %v fail with %v", pcb.Type, pcb.RemoteAddr(), pcb.LocalAddr(), err)
+	if err == nil {
+		core.DebugLog("LWIP accept %v from %v to %v success", pcb.Type, pcb.RemoteAddr(), pcb.LocalAddr())
+	} else {
+		core.DebugLog("LWIP accept %v from %v to %v fail with %v", pcb.Type, pcb.RemoteAddr(), pcb.LocalAddr(), err)
 	}
 }
 
 //OnClose will handler the tcp close
 func (l *LwipHandler) OnClose(pcb *lwipcs.PCB) {
-	core.DebugLog("tcp close from %v", pcb.RemoteAddr())
+	core.DebugLog("LWIP tcp close from %v", pcb.RemoteAddr())
 }

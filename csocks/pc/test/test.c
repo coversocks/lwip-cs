@@ -75,10 +75,16 @@
 #define TAPIF_DEBUG LWIP_DBG_OFF
 #endif
 
+/* ------------------------- */
+
+#define LWIP_PORT_INIT_IPADDR(addr) IP4_ADDR((addr), 192, 168, 100, 200)
+#define LWIP_PORT_INIT_GW(addr) IP4_ADDR((addr), 192, 168, 100, 1)
+#define LWIP_PORT_INIT_NETMASK(addr) IP4_ADDR((addr), 255, 255, 255, 0)
+
 int tap_fd = -1;
 
 /*-----------------------------------------------------------------------------------*/
-err_t test_tap_init(struct netif *netif)
+void test_tap_init(void *arg, struct netif *netif)
 {
 #if LWIP_IPV4
   int ret;
@@ -128,7 +134,7 @@ err_t test_tap_init(struct netif *netif)
 #endif /* NETMASK_ARGS */
   );
 
-  LWIP_DEBUGF(TAPIF_DEBUG, ("tapif_init: system(\"%s\");\n", buf));
+  printf("tapif_init: system(\"%s\");\n", buf);
   ret = system(buf);
   if (ret < 0)
   {
@@ -143,8 +149,8 @@ err_t test_tap_init(struct netif *netif)
   perror("todo: support IPv6 support for non-preconfigured tapif");
   exit(1);
 #endif /* LWIP_IPV4 */
-  return ERR_OK;
 }
+
 ssize_t test_output(void *arg, const char *buf, u16_t len)
 {
   return write(tap_fd, buf, len);
@@ -152,7 +158,7 @@ ssize_t test_output(void *arg, const char *buf, u16_t len)
 ssize_t test_input(void *arg, char *buf, u16_t len)
 {
   // printf("----->input\n");
-  ssize_t l=read(tap_fd, buf, len);
+  ssize_t l = read(tap_fd, buf, len);
   // printf("----->input done %ld \n",l);
   return l;
 }
@@ -237,6 +243,7 @@ int main()
   gback.output = test_output;
   cs_callback back;
   struct netif netif;
+  back.init = test_tap_init;
   back.netif = &netif;
   gback.netif = &netif;
   gback.state = &back;
@@ -248,11 +255,14 @@ int main()
   // back.tcp_close = test_tcp_close;
   // back.tcp_send_done = test_tcp_send_done;
   // back.tcp_recv = test_tcp_recv;
-  back.output=test_raw_output_h;
+  back.output = test_raw_output_h;
   //
-  test_tap_init(&netif);
+  // test_tap_init(&netif);
   //
-  go_cs_proc(&netif);
+  GoString c;
+  c.p = "csocks.json";
+  c.n = 11;
+  go_cs_proc(c);
 }
 
 #define LWIP_PORT_INIT_IPADDR(addr) IP4_ADDR((addr), 192, 168, 100, 200)

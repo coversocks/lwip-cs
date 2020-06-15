@@ -4,7 +4,7 @@ set (LWIP_INCLUDE_DIRS
 )
 
 set (LWIP_LIBRARY_DIRS
-    "${LWIP_DIR}/build/contrib/ports/unix/example_app"
+    "${LWIP_DIR}/../lwip-contrib/ports/unix/example_app/build"
 )
 
 set (LWIP_COMPILER_FLAGS

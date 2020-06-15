@@ -48,7 +48,7 @@
 #include "cs.h"
 
 #if LWIP_TCP && LWIP_CALLBACK_API
-static err_t cs_tcp_raw_sent(void *arg, struct tcp_pcb *tpcb, u16_t len);
+static err_t cs_tcp_send(void *arg, struct tcp_pcb *tpcb, u16_t len);
 
 static void cs_tcp_raw_free(struct cs_tcp_raw_state *es)
 {
@@ -168,7 +168,7 @@ static err_t cs_tcp_raw_poll(void *arg, struct tcp_pcb *tpcb)
   return ret_err;
 }
 
-static err_t cs_tcp_raw_sent(void *arg, struct tcp_pcb *tpcb, u16_t len)
+static err_t cs_tcp_send(void *arg, struct tcp_pcb *tpcb, u16_t len)
 {
   struct cs_tcp_raw_state *es;
   LWIP_ASSERT("arg != NULL", arg != NULL);
@@ -180,7 +180,7 @@ static err_t cs_tcp_raw_sent(void *arg, struct tcp_pcb *tpcb, u16_t len)
   if (es->p != NULL)
   {
     /* still got pbufs to send */
-    tcp_sent(tpcb, cs_tcp_raw_sent);
+    tcp_sent(tpcb, cs_tcp_send);
     cs_tcp_raw_send(tpcb, es);
   }
   else
@@ -297,7 +297,7 @@ static err_t cs_tcp_raw_accept(void *arg, struct tcp_pcb *newpcb, err_t err)
     tcp_recv(newpcb, cs_tcp_raw_recv);
     tcp_err(newpcb, cs_tcp_raw_error);
     tcp_poll(newpcb, cs_tcp_raw_poll, 1);
-    tcp_sent(newpcb, cs_tcp_raw_sent);
+    tcp_sent(newpcb, cs_tcp_send);
     back->tcp_accept(back->state, newpcb, es);
     ret_err = ERR_OK;
   }

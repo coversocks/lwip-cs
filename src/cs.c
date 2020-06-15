@@ -114,6 +114,8 @@ err_t cs_low_level_output(struct netif *netif, struct pbuf *p)
   }
 }
 
+err_t cs_tap_init(struct netif *netif);
+
 /*-----------------------------------------------------------------------------------*/
 static void cs_low_level_init(struct netif *netif)
 {
@@ -228,10 +230,11 @@ int cs_init(cs_callback *back)
     LWIP_PORT_INIT_NETMASK(&netmask);
     struct netif *netif = back->netif;
     // init netif
-    if (!netif_add(netif, &addr, &netmask, &gw, back, cs_netif_init, ethernet_input))
+    if (!netif_add(netif, &addr, &netmask, &gw, back, cs_netif_init, netif_input))
     {
         return -1;
     }
+    back->init(back->state, netif);
     // set netif up
     netif_set_up(netif);
     // set netif link up, otherwise ip route will refuse to route

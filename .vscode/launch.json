@@ -37,6 +37,18 @@
             }
         },
         {
+            "name": "Debug go test",
+            "type": "cppdbg",
+            "request": "launch",
+            "stopAtEntry": false,
+            "linux": {
+                "program": "${workspaceFolder}/csocks/pc/test/test",
+                "cwd": "${workspaceFolder}/csocks/pc/test/",
+                "MIMode": "gdb",
+                "miDebuggerPath": "/usr/bin/gdb"
+            },
+        },
+        {
             "name": "(gdb) Launch unit tests",
             "type": "cppdbg",
             "request": "launch",

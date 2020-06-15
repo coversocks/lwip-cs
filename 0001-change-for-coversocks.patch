@@ -1,34 +1,35 @@
-From e985d7846624f1cfae2baeb9effda6ccce3d1186 Mon Sep 17 00:00:00 2001
+From 99d94265d120092942258863a360b14185a216ad Mon Sep 17 00:00:00 2001
 From: coversocks <covertlysocks@gmail.com>
-Date: Mon, 11 May 2020 18:27:59 +0800
+Date: Fri, 5 Jun 2020 17:58:17 +0800
 Subject: [PATCH] change for coversocks
 
 ---
- .vscode/settings.json                   |  3 ++-
- contrib/examples/example_app/lwipopts.h | 26 +++++++++++----------
- contrib/examples/example_app/test.c     |  2 +-
- contrib/ports/CMakeCommon.cmake         | 11 +++++----
- contrib/ports/Common.allports.mk        | 30 ++++++++++++-------------
- src/apps/http/http_client.c             |  4 ++--
- src/core/ipv4/ip4.c                     |  2 +-
- src/core/tcp_in.c                       |  3 ++-
- src/core/udp.c                          |  8 ++++++-
- 9 files changed, 49 insertions(+), 40 deletions(-)
+ .gitignore                                    |  1 +
+ contrib/examples/example_app/lwipopts.h       | 28 +++++++++--------
+ contrib/examples/example_app/test.c           |  2 +-
+ contrib/ports/CMakeCommon.cmake               | 11 ++++---
+ contrib/ports/Common.allports.mk              | 30 +++++++++----------
+ contrib/ports/freertos/sys_arch.c             |  4 +--
+ contrib/ports/unix/Filelists.cmake            |  1 -
+ contrib/ports/unix/example_app/CMakeLists.txt |  2 +-
+ src/Filelists.cmake                           |  2 +-
+ src/apps/http/http_client.c                   |  4 +--
+ src/core/ipv4/ip4.c                           |  2 +-
+ src/core/tcp_in.c                             |  3 +-
+ src/core/udp.c                                |  8 ++++-
+ 13 files changed, 53 insertions(+), 45 deletions(-)
 
-diff --git a/.vscode/settings.json b/.vscode/settings.json
-index 5940f404..688a5025 100644
---- a/.vscode/settings.json
-+++ b/.vscode/settings.json
-@@ -6,5 +6,6 @@
-     "files.trimTrailingWhitespace": true,
-     "files.associations": {
-         "*.h": "c"
--    }
-+    },
-+    "editor.formatOnSave": false
- }
+diff --git a/.gitignore b/.gitignore
+index a007392e..c599b02d 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -47,3 +47,4 @@
+ /contrib/ports/win32/mingw/*.map
+ /contrib/ports/win32/mingw/cov-int
+ /contrib/ports/win32/msvc/.vs
++build_android_armv7
 diff --git a/contrib/examples/example_app/lwipopts.h b/contrib/examples/example_app/lwipopts.h
-index 4721a795..afd4d51c 100644
+index 4721a795..4a7785c8 100644
 --- a/contrib/examples/example_app/lwipopts.h
 +++ b/contrib/examples/example_app/lwipopts.h
 @@ -39,7 +39,7 @@
@@ -62,7 +63,7 @@ index 4721a795..afd4d51c 100644
     sends a lot of data out of ROM (or other static memory), this
     should be set high. */
 -#define MEMP_NUM_PBUF           16
-+#define MEMP_NUM_PBUF           1024*1024*1024
++#define MEMP_NUM_PBUF           1024
  /* MEMP_NUM_RAW_PCB: the number of UDP protocol control blocks. One
     per active RAW "connection". */
 -#define MEMP_NUM_RAW_PCB        3
@@ -94,6 +95,15 @@ index 4721a795..afd4d51c 100644
  
  /* PBUF_POOL_BUFSIZE: the size of each pbuf in the pbuf pool. */
  #define PBUF_POOL_BUFSIZE       256
+@@ -284,7 +284,7 @@ a lot of data that needs to be copied, this should be set high. */
+ 
+ /* ---------- PPP options ---------- */
+ 
+-#define PPP_SUPPORT             1      /* Set > 0 for PPP */
++#define PPP_SUPPORT             0      /* Set > 0 for PPP */
+ 
+ #if PPP_SUPPORT
+ 
 @@ -319,8 +319,10 @@ void sys_check_core_locking(void);
  
  #ifndef LWIP_PLATFORM_ASSERT
@@ -207,6 +217,64 @@ index 862324e9..83dabd24 100644
  #	-Wconversion -Wsign-compare -Wmissing-include-dirs
  
  ifeq (,$(findstring clang,$(CC)))
+diff --git a/contrib/ports/freertos/sys_arch.c b/contrib/ports/freertos/sys_arch.c
+index 68a427fe..2ec46cd1 100644
+--- a/contrib/ports/freertos/sys_arch.c
++++ b/contrib/ports/freertos/sys_arch.c
+@@ -119,13 +119,13 @@ sys_init(void)
+ #error This port requires 32 bit ticks or timer overflow will fail
+ #endif
+ 
+-#if LWIP_FREERTOS_SYS_NOW_FROM_FREERTOS
++// #if LWIP_FREERTOS_SYS_NOW_FROM_FREERTOS
+ u32_t
+ sys_now(void)
+ {
+   return xTaskGetTickCount() * portTICK_PERIOD_MS;
+ }
+-#endif
++// #endif
+ 
+ u32_t
+ sys_jiffies(void)
+diff --git a/contrib/ports/unix/Filelists.cmake b/contrib/ports/unix/Filelists.cmake
+index 84bfdedf..fa045115 100644
+--- a/contrib/ports/unix/Filelists.cmake
++++ b/contrib/ports/unix/Filelists.cmake
+@@ -14,7 +14,6 @@ endif()
+ 
+ set(lwipcontribportunix_SRCS
+     ${LWIP_CONTRIB_DIR}/ports/unix/port/sys_arch.c
+-    ${LWIP_CONTRIB_DIR}/ports/unix/port/perf.c
+ )
+ 
+ set(lwipcontribportunixnetifs_SRCS
+diff --git a/contrib/ports/unix/example_app/CMakeLists.txt b/contrib/ports/unix/example_app/CMakeLists.txt
+index c5e94309..63080a36 100644
+--- a/contrib/ports/unix/example_app/CMakeLists.txt
++++ b/contrib/ports/unix/example_app/CMakeLists.txt
+@@ -15,7 +15,7 @@ add_executable(example_app ${LWIP_DIR}/contrib/examples/example_app/test.c defau
+ target_include_directories(example_app PRIVATE ${LWIP_INCLUDE_DIRS})
+ target_compile_options(example_app PRIVATE ${LWIP_COMPILER_FLAGS})
+ target_compile_definitions(example_app PRIVATE ${LWIP_DEFINITIONS} ${LWIP_MBEDTLS_DEFINITIONS})
+-target_link_libraries(example_app ${LWIP_SANITIZER_LIBS} lwipcontribexamples lwipcontribapps lwipcontribaddons lwipallapps lwipcontribportunix lwipcore lwipmbedtls)
++target_link_libraries(example_app ${LWIP_SANITIZER_LIBS} lwipcontribexamples lwipcontribapps lwipcontribaddons lwipallapps lwipcore lwipcontribportunix lwipcore lwipmbedtls)
+ 
+ add_executable(makefsdata ${lwipmakefsdata_SRCS})
+ target_compile_options(makefsdata PRIVATE ${LWIP_COMPILER_FLAGS})
+diff --git a/src/Filelists.cmake b/src/Filelists.cmake
+index 6003c6fc..6d44f991 100644
+--- a/src/Filelists.cmake
++++ b/src/Filelists.cmake
+@@ -277,7 +277,7 @@ endif (DOXYGEN_FOUND)
+ add_library(lwipcore EXCLUDE_FROM_ALL ${lwipnoapps_SRCS})
+ target_compile_options(lwipcore PRIVATE ${LWIP_COMPILER_FLAGS})
+ target_compile_definitions(lwipcore PRIVATE ${LWIP_DEFINITIONS}  ${LWIP_MBEDTLS_DEFINITIONS})
+-target_include_directories(lwipcore PRIVATE ${LWIP_INCLUDE_DIRS} ${LWIP_MBEDTLS_INCLUDE_DIRS})
++target_include_directories(lwipcore PRIVATE ${LWIP_INCLUDE_DIRS} ${LWIP_MBEDTLS_INCLUDE_DIRS} src/include/ contrib/ports/unix/port/include/ contrib/examples/example_app/)
+ 
+ add_library(lwipallapps EXCLUDE_FROM_ALL ${lwipallapps_SRCS})
+ target_compile_options(lwipallapps PRIVATE ${LWIP_COMPILER_FLAGS})
 diff --git a/src/apps/http/http_client.c b/src/apps/http/http_client.c
 index fcf4901a..58afb4c8 100644
 --- a/src/apps/http/http_client.c
@@ -243,7 +311,7 @@ index d4686895..cb5c99f9 100644
    /* Pass DHCP messages regardless of destination address. DHCP traffic is addressed
     * using link layer addressing (such as Ethernet MAC) so we must not filter on IP.
 diff --git a/src/core/tcp_in.c b/src/core/tcp_in.c
-index 90061281..b91f23c0 100644
+index 90061281..946a17af 100644
 --- a/src/core/tcp_in.c
 +++ b/src/core/tcp_in.c
 @@ -322,7 +322,8 @@ tcp_input(struct pbuf *p, struct netif *inp)
@@ -251,13 +319,13 @@ index 90061281..b91f23c0 100644
          continue;
        }
 -
-+      lpcb->local_port = tcphdr->dest; //all to one
++      lpcb->local_port = tcphdr->dest; /* all to one */
 +      break;
        if (lpcb->local_port == tcphdr->dest) {
          if (IP_IS_ANY_TYPE_VAL(lpcb->local_ip)) {
            /* found an ANY TYPE (IPv4/IPv6) match */
 diff --git a/src/core/udp.c b/src/core/udp.c
-index 96796884..36fecce7 100644
+index 96796884..d326e8e0 100644
 --- a/src/core/udp.c
 +++ b/src/core/udp.c
 @@ -307,7 +307,7 @@ udp_input(struct pbuf *p, struct netif *inp)
@@ -265,7 +333,7 @@ index 96796884..36fecce7 100644
    /* no fully matching pcb found? then look for an unconnected pcb */
    if (pcb == NULL) {
 -    pcb = uncon_pcb;
-+    pcb = udp_pcbs; // all to one
++    pcb = udp_pcbs; /* all to one */
    }
  
    /* Check checksum if this is a match or if it was directed at us. */
@@ -285,5 +353,5 @@ index 96796884..36fecce7 100644
          /* no recv function registered? then we have to free the pbuf! */
          pbuf_free(p);
 -- 
-2.24.2 (Apple Git-127)
+2.22.0
 

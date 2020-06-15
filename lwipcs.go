@@ -3,6 +3,7 @@ package lwipcs
 import (
 	"fmt"
 	"net"
+	"sync"
 	"time"
 	"unsafe"
 )
@@ -45,6 +46,8 @@ type PCB struct {
 	recvInter  bool //whether recv is tntercepted
 	recvQueued chan []byte
 	sendWait   chan int
+	sendCount  int
+	lck        sync.RWMutex
 }
 
 //newPCB will create new pcb
@@ -58,6 +61,7 @@ func newPCB(ptype string, arg, pcb, state unsafe.Pointer, laddr, raddr C.ip_addr
 		localPort:  lport,
 		remoteIP:   raddr,
 		remotePort: rport,
+		lck:        sync.RWMutex{},
 	}
 	p.recvQueued = make(chan []byte, 1024)
 	if ptype == TCP {
@@ -119,9 +123,15 @@ func (p *PCB) Read(b []byte) (l int, err error) {
 
 //Intercept will intercept the recv queued to target chan, the Read will panic after intercepted
 func (p *PCB) Intercept(c chan []byte) {
+	p.lck.Lock()
+	if p.recvInter {
+		p.lck.Unlock()
+		panic("intercepted")
+	}
 	p.recvInter = true
 	close(p.recvQueued)
 	p.recvQueued = c
+	p.lck.Unlock()
 }
 
 func (p *PCB) Write(b []byte) (l int, err error) {
@@ -130,9 +140,13 @@ func (p *PCB) Write(b []byte) (l int, err error) {
 		return
 	}
 	if p.err == nil {
+		if p.Type == TCP {
+			p.lck.Lock()
+		}
 		sendQueue <- &sendEntry{PCB: p, Data: b}
 		if p.Type == TCP {
 			<-p.sendWait
+			p.lck.Unlock()
 		}
 	}
 	l = len(b)
@@ -163,6 +177,8 @@ func (p *PCB) SetWriteDeadline(t time.Time) error {
 }
 
 func (p *PCB) close() (err error) {
+	p.lck.Lock()
+	defer p.lck.Unlock()
 	if p.err != nil {
 		return p.err
 	}
@@ -176,11 +192,19 @@ func (p *PCB) close() (err error) {
 	return
 }
 
+func (p *PCB) String() string {
+	return fmt.Sprintf("PCB(%v <-> %v)", p.LocalAddr(), p.RemoteAddr())
+}
+
 var tcpPcbs = map[uintptr]*PCB{}
 var udpPcbs = map[string]*PCB{}
 
 //export go_tcp_accept_h
 func go_tcp_accept_h(arg, newpcb, state unsafe.Pointer) int {
+	begin := time.Now()
+	defer func() {
+		fmt.Printf("go_tcp_accept_h used %v\n", time.Now().Sub(begin))
+	}()
 	if newpcb == nil {
 		return 1
 	}
@@ -202,6 +226,10 @@ func go_tcp_accept_h(arg, newpcb, state unsafe.Pointer) int {
 
 //export go_tcp_recv_h
 func go_tcp_recv_h(arg, tpcb, state, buf unsafe.Pointer) int {
+	begin := time.Now()
+	defer func() {
+		fmt.Printf("go_tcp_recv_h used %v\n", time.Now().Sub(begin))
+	}()
 	if tpcb == nil || buf == nil {
 		return 1
 	}
@@ -217,6 +245,10 @@ func go_tcp_recv_h(arg, tpcb, state, buf unsafe.Pointer) int {
 
 //export go_tcp_send_done_h
 func go_tcp_send_done_h(arg, tpcb, state, buf unsafe.Pointer) int {
+	begin := time.Now()
+	defer func() {
+		fmt.Printf("go_tcp_send_done_h used %v\n", time.Now().Sub(begin))
+	}()
 	if tpcb == nil {
 		return 1
 	}
@@ -224,12 +256,25 @@ func go_tcp_send_done_h(arg, tpcb, state, buf unsafe.Pointer) int {
 	if pcb == nil || pcb.err != nil {
 		return 1
 	}
-	pcb.sendWait <- 1
+	// if pcb.err == nil {
+	// remain := atomic.AddInt32(&pcb.sendCount, -1)
+	// if remain >= 0 {
+	if pcb.sendCount > 0 {
+		pcb.sendCount--
+		pcb.sendWait <- 1
+	}
+	fmt.Printf("%v having %v\n", pcb, pcb.sendCount)
+	// }
+	// }
 	return 0
 }
 
 //export go_tcp_close_h
 func go_tcp_close_h(arg, tpcb, state unsafe.Pointer) int {
+	begin := time.Now()
+	defer func() {
+		fmt.Printf("go_tcp_close_h used %v\n", time.Now().Sub(begin))
+	}()
 	if tpcb == nil {
 		return 1
 	}
@@ -247,6 +292,10 @@ func go_tcp_close_h(arg, tpcb, state unsafe.Pointer) int {
 
 //export go_udp_recv_h
 func go_udp_recv_h(arg, upcb unsafe.Pointer, addr *C.ip_addr_t, port int, buf unsafe.Pointer) int {
+	begin := time.Now()
+	defer func() {
+		fmt.Printf("go_udp_recv_h used %v\n", time.Now().Sub(begin))
+	}()
 	var data = make([]byte, C.go_cs_pbuf_len(buf))
 	C.go_cs_pbuf_copy(buf, (*C.char)(unsafe.Pointer(&data[0])))
 	var ip = make([]byte, C.go_cs_ip_len(addr))
@@ -269,16 +318,28 @@ func go_udp_recv_h(arg, upcb unsafe.Pointer, addr *C.ip_addr_t, port int, buf un
 }
 
 func tcpSend(tpcb, state unsafe.Pointer, buf []byte) int {
+	begin := time.Now()
+	defer func() {
+		fmt.Printf("go_cs_tcp_send used %v\n", time.Now().Sub(begin))
+	}()
 	var ret = C.go_cs_tcp_send(tpcb, state, (*C.char)(unsafe.Pointer(&buf[0])), C.int(len(buf)))
 	return int(ret)
 }
 
 func tcpClose(tpcb, state unsafe.Pointer) int {
+	begin := time.Now()
+	defer func() {
+		fmt.Printf("go_cs_tcp_close used %v\n", time.Now().Sub(begin))
+	}()
 	var ret = C.go_cs_tcp_close(tpcb, state)
 	return int(ret)
 }
 
 func udpSend(upcb unsafe.Pointer, laddr *C.ip_addr_t, lport int, raddr *C.ip_addr_t, rport int, buf []byte) int {
+	begin := time.Now()
+	defer func() {
+		fmt.Printf("go_cs_udp_send used %v\n", time.Now().Sub(begin))
+	}()
 	var ret = C.go_cs_udp_send(upcb, laddr, C.u16_t(lport), raddr, C.u16_t(rport), (*C.char)(unsafe.Pointer(&buf[0])), C.int(len(buf)))
 	return int(ret)
 }
@@ -293,6 +354,7 @@ func (s *sendEntry) Send() {
 		return
 	}
 	if s.PCB.Type == TCP {
+		s.PCB.sendCount++
 		tcpSend(s.PCB.pcb, s.PCB.state, s.Data)
 	} else {
 		udpSend(s.PCB.pcb, &s.PCB.localIP, s.PCB.localPort, &s.PCB.remoteIP, s.PCB.remotePort, s.Data)
@@ -305,13 +367,43 @@ type recvedEntry struct {
 }
 
 var inputQueue = make(chan []byte, 1024)
+var inputQueue2 = make(chan []byte, 1024)
 var recvedQueue = make(chan *recvedEntry, 1024)
 var sendQueue = make(chan *sendEntry, 1024)
 var closeQueue = make(chan *PCB, 1024)
 
 //export go_input_h
 func go_input_h(arg, netif unsafe.Pointer, readlen *C.u16_t) unsafe.Pointer {
-	for {
+	select {
+	case i := <-inputQueue2:
+		if i == nil || len(i) < 1 {
+			return nil
+		}
+		*readlen = C.u16_t(len(i))
+		var p = C.go_cs_pbuf_alloc(*readlen)
+		if p != nil {
+			C.go_cs_pbuf_take(p, (*C.char)(unsafe.Pointer(&i[0])))
+		}
+		return p
+	default:
+		return nil
+	}
+	// for {
+
+	// }
+	// return nil
+}
+
+var runnning = false
+
+//Event will proc all event
+var Event Handler
+
+//export go_netif_proc
+func go_netif_proc() {
+	runnning = true
+	var netif = C.go_cs_netif_get()
+	for runnning {
 		select {
 		case r := <-recvedQueue:
 			if r.PCB.err == nil {
@@ -327,31 +419,9 @@ func go_input_h(arg, netif unsafe.Pointer, readlen *C.u16_t) unsafe.Pointer {
 		case s := <-sendQueue:
 			s.Send()
 		case i := <-inputQueue:
-			if i == nil || len(i) < 1 {
-				return nil
-			}
-			*readlen = C.u16_t(len(i))
-			var p = C.go_cs_pbuf_alloc(*readlen)
-			if p != nil {
-				C.go_cs_pbuf_take(p, (*C.char)(unsafe.Pointer(&i[0])))
-			}
-			return p
+			inputQueue2 <- i
+			C.go_cs_netif_proc(netif)
 		}
-	}
-	// return nil
-}
-
-var runnning = false
-
-//Event will proc all event
-var Event Handler
-
-//export go_netif_proc
-func go_netif_proc() {
-	runnning = true
-	var netif = C.go_cs_netif_get()
-	for runnning {
-		C.go_cs_netif_proc(netif)
 		// select {
 		// case c := <-closeQueue:
 		// 	tcpClose(c.pcb, c.state)

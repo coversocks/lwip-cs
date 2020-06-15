@@ -93,7 +93,7 @@
 int tap_fd = -1;
 
 /*-----------------------------------------------------------------------------------*/
-err_t cs_tap_init(struct netif *netif)
+void cs_tap_init(void *arg, struct netif *netif)
 {
 #if LWIP_IPV4
     int ret;
@@ -127,7 +127,7 @@ err_t cs_tap_init(struct netif *netif)
         }
     }
 #endif /* LWIP_UNIX_LINUX */
-
+    netif_set_link_up(netif);
 #if LWIP_IPV4
     snprintf(buf, 1024, IFCONFIG_BIN IFCONFIG_ARGS,
              ip4_addr1(netif_ip4_gw(netif)),
@@ -143,7 +143,7 @@ err_t cs_tap_init(struct netif *netif)
 #endif /* NETMASK_ARGS */
     );
 
-    LWIP_DEBUGF(TAPIF_DEBUG, ("tapif_init: system(\"%s\");\n", buf));
+    printf("tapif_init: system(\"%s\");\n", buf);
     ret = system(buf);
     if (ret < 0)
     {
@@ -158,7 +158,6 @@ err_t cs_tap_init(struct netif *netif)
     perror("todo: support IPv6 support for non-preconfigured tapif");
     exit(1);
 #endif /* LWIP_IPV4 */
-    return ERR_OK;
 }
 
 err_t cs_tcp_accept(void *arg, struct tcp_pcb *newpcb, struct cs_tcp_raw_state *state)
@@ -169,19 +168,19 @@ err_t cs_tcp_accept(void *arg, struct tcp_pcb *newpcb, struct cs_tcp_raw_state *
 err_t cs_tcp_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, struct cs_tcp_raw_state *state)
 {
     // printf("---->cs_tcp_recv\n");
-    // if (state->p == NULL)
-    // {
-    //     state->p = p;
-    //     cs_tcp_raw_send(tpcb, state);
-    // }
-    // else
-    // {
-    //     struct pbuf *ptr;
-    //     ptr = state->p;
-    //     pbuf_cat(ptr, p);
-    // }
-    tcp_recved(tpcb, p->tot_len);
-    pbuf_free(p);
+    if (state->p == NULL)
+    {
+        state->p = p;
+        cs_tcp_raw_send(tpcb, state);
+    }
+    else
+    {
+        struct pbuf *ptr;
+        ptr = state->p;
+        pbuf_cat(ptr, p);
+    }
+    // tcp_recved(tpcb, p->tot_len);
+    // pbuf_free(p);
     return ERR_OK;
 }
 void cs_tcp_send_done(void *arg, struct tcp_pcb *tpcb, struct cs_tcp_raw_state *state)
@@ -231,15 +230,17 @@ void tcpecho_raw_init(void);
 int main()
 {
     // init lwip
-    lwip_init();
-    // tcpip_init(NULL,NULL);
+    // lwip_init();
 
-    ip4_addr_t addr;
-    ip4_addr_t netmask;
-    ip4_addr_t gw;
-    LWIP_PORT_INIT_GW(&gw);
-    LWIP_PORT_INIT_IPADDR(&addr);
-    LWIP_PORT_INIT_NETMASK(&netmask);
+    // ip4_addr_t addr;
+    // ip4_addr_t netmask;
+    // ip4_addr_t gw;
+    // ip4_addr_set_zero(&gw);
+    // ip4_addr_set_zero(&addr);
+    // ip4_addr_set_zero(&netmask);
+    // LWIP_PORT_INIT_GW(&gw);
+    // LWIP_PORT_INIT_IPADDR(&addr);
+    // LWIP_PORT_INIT_NETMASK(&netmask);
     struct netif netif;
     cs_callback back;
     back.tcp_accept = cs_tcp_accept;
@@ -249,31 +250,34 @@ int main()
     back.udp_recv = cs_udp_recv;
     back.output = cs_output;
     back.input = cs_input;
+    back.init = cs_tap_init;
     back.netif = &netif;
-    // init netif
-    if (!netif_add(&netif, &addr, &netmask, &gw, &back, cs_netif_init, ethernet_input))
-    {
-        goto fail;
-    }
-    // set netif default
-    netif_set_default(&netif);
+    cs_init(&back);
+    // // init netif
+    // if (!netif_add(&netif, &addr, &netmask, &gw, &back, cs_netif_init, ethernet_input))
+    // {
+    //     goto fail;
+    // }
+    // //
+    // cs_tap_init(&netif);
 
-    // set netif up
-    netif_set_up(&netif);
+    // // set netif default
+    // netif_set_default(&netif);
 
-    // set netif link up, otherwise ip route will refuse to route
-    // netif_set_link_up(&netif);
-    // tcpecho_raw_init();
-    cs_tcp_raw_init(&back);
+    // // set netif up
+    // netif_set_up(&netif);
+
+    // // set netif link up, otherwise ip route will refuse to route
+    // // netif_set_link_up(&netif);
+    // // tcpecho_raw_init();
+    // cs_tcp_raw_init(&back);
     // cs_udp_raw_init(&back);
-    cs_tap_init(&netif);
     // udpecho_raw_init();
     while (1)
     {
-        cs_netif_input(&netif);
-        // default_netif_poll();
-        // tapif_poll(&netif);
-        netif_poll_all();
+        // cs_netif_input(&netif);
+        // netif_poll_all();
+        cs_netif_proc(&netif);
     }
 fail:
     printf("all done");
